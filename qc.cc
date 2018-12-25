@@ -42,7 +42,7 @@ static std::vector<qbit> qbits;
  * 新たな量子変数に与える番号
  */
 static int
-get_qbit_id() {
+new_qbit_id() {
   int id = qbits.size();
   while(q_amplitudes.size() < ((size_t)1 << (id + 1))) {
     q_amplitudes.push_back(std::complex<double>());
@@ -56,7 +56,7 @@ struct qbit::q_impl {
   q_impl() : id(-1), name() {
   }
   void setup() {
-    id = get_qbit_id();
+    id = new_qbit_id();
   }
   void set_name(std::string const& name) {
     this->name = name;
@@ -153,7 +153,7 @@ reset() {
  * | 0 1|
  * \    /
  */
-std::complex<double> op_unit(size_t j, size_t i) {
+static std::complex<double> op_unit(size_t j, size_t i) {
   return (i == j)
     ? std::complex<double>(1, 0) : std::complex<double>();
 }
@@ -164,7 +164,7 @@ std::complex<double> op_unit(size_t j, size_t i) {
  * | 1 -1|
  * \     /
  */
-std::complex<double> op_hadamard(size_t j, size_t i) {
+static std::complex<double> op_hadamard(size_t j, size_t i) {
   assert(i < 2);
   assert(j < 2);
   return ((i == 0 || j == 0)
@@ -178,7 +178,7 @@ std::complex<double> op_hadamard(size_t j, size_t i) {
  * | 0 exp(i phi)|
  * \             /
  */
-std::complex<double>
+static std::complex<double>
 op_cphase(std::complex<double> const& phase, size_t j, size_t i) {
   assert(i < 2);
   assert(j < 2);
@@ -197,7 +197,7 @@ op_cphase(std::complex<double> const& phase, size_t j, size_t i) {
  * | 1 0|
  * \    /
  */
-std::complex<double> op_pauli_x(size_t j, size_t i) {
+static std::complex<double> op_pauli_x(size_t j, size_t i) {
   assert(i < 2);
   assert(j < 2);
   return (i != j) ? std::complex<double>(1, 0) : std::complex<double>();
@@ -209,7 +209,7 @@ std::complex<double> op_pauli_x(size_t j, size_t i) {
  * | i  0|
  * \     /
  */
-std::complex<double> op_pauli_y(size_t j, size_t i) {
+static std::complex<double> op_pauli_y(size_t j, size_t i) {
   assert(i < 2);
   assert(j < 2);
   if (i == j) {
@@ -228,7 +228,7 @@ std::complex<double> op_pauli_y(size_t j, size_t i) {
  * | 0 -1|
  * \     /
  */
-std::complex<double> op_pauli_z(size_t j, size_t i) {
+static std::complex<double> op_pauli_z(size_t j, size_t i) {
   assert(i < 2);
   assert(j < 2);
   if (i != j) {
@@ -241,18 +241,18 @@ std::complex<double> op_pauli_z(size_t j, size_t i) {
   }
 }
 
-std::complex<double> op_downside(size_t j, size_t i) {
+static std::complex<double> op_downside(size_t j, size_t i) {
   return (i == 0 && j == 0) ? std::complex<double>(1, 0) : std::complex<double>();
 }
 
-std::complex<double> op_upside(size_t j, size_t i) {
+static std::complex<double> op_upside(size_t j, size_t i) {
   return (i == 1 && j == 1) ? std::complex<double>(1, 0) : std::complex<double>();
 }
 
 /**
  * 二演算子のテンソル積
  */
-std::complex<double>
+static std::complex<double>
 tensor_product(boost::function<std::complex<double>(size_t, size_t)> op1,
                boost::function<std::complex<double>(size_t, size_t)> op2,
                size_t j, size_t i) {
@@ -264,7 +264,7 @@ tensor_product(boost::function<std::complex<double>(size_t, size_t)> op1,
 /**
  * CNOT ゲート
  */
-std::complex<double> op_cnot(size_t j, size_t i) {
+static std::complex<double> op_cnot(size_t j, size_t i) {
   return tensor_product(&op_downside, &op_unit, i, j)
     + tensor_product(&op_upside, &op_pauli_x, i, j);
 }
@@ -272,7 +272,7 @@ std::complex<double> op_cnot(size_t j, size_t i) {
 /**
  * 与えられた演算子を適用する
  */
-std::vector<std::complex<double> >
+static std::vector<std::complex<double> >
 mat_multiply(boost::function<std::complex<double>(size_t, size_t)> op,
              std::vector<std::complex<double> > const& values) {
   std::vector<std::complex<double> > result;
@@ -295,7 +295,8 @@ mat_multiply(boost::function<std::complex<double>(size_t, size_t)> op,
  *
  * I (X) I (X) .....I (X) OP (X) I.....(X) I (X) I
  */
-std::complex<double> op_i_op1_i(boost::function<std::complex<double>(size_t, size_t)> op1,
+static std::complex<double>
+op_i_op1_i(boost::function<std::complex<double>(size_t, size_t)> op1,
                    int id, size_t j, size_t i) {
   size_t mask = ~(static_cast<size_t>(0x01) << id);
   if ((mask & i) != (mask & j)) {
@@ -313,7 +314,8 @@ std::complex<double> op_i_op1_i(boost::function<std::complex<double>(size_t, siz
  *
  * I (X) ... I (X) OP1 (X) I ...(X) I (X) OP2 (X) I ... (X) I
  */
-std::complex<double> op_i_op2_i(boost::function<std::complex<double>(size_t,size_t)> op2,
+static std::complex<double>
+op_i_op2_i(boost::function<std::complex<double>(size_t,size_t)> op2,
                    int id2, int id1, size_t j, size_t i) {
   size_t mask2 = static_cast<size_t>(0x01) << id2;
   size_t mask1 = static_cast<size_t>(0x01) << id1;
@@ -336,18 +338,6 @@ dump_operator(boost::function<std::complex<double>(size_t, size_t)> op) {
     }
     std::cout << std::endl;
   }
-}
-
-std::complex<double> op_to_down(size_t j, size_t i) {
-  assert(i < 2);
-  assert(j < 2);
-  return (j == 0) ? std::complex<double>(1.0 / sqrt(2.0), 0) : std::complex<double>();
-}
-
-std::complex<double> op_to_up(size_t j, size_t i) {
-  assert(i < 2);
-  assert(j < 2);
-  return (j == 1) ? std::complex<double>(1.0 / sqrt(2.0), 0) : std::complex<double>();
 }
 
 static double

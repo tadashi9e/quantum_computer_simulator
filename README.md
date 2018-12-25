@@ -43,7 +43,7 @@ void qc::reset()
 =========
 
 ```c++
-void dump(std::string const& title);
+void qc::dump(std::string const& title);
 ```
 
 量子ビットの一覧、および、その時点での各状態の振幅を表示する。
@@ -55,7 +55,7 @@ void dump(std::string const& title);
 ------------
 
 ```c++
-void hadamard(qbit const& q);
+void qc::hadamard(qbit const& q);
 ```
 
 量子変数 q にアダマール変換を行う。
@@ -64,28 +64,28 @@ void hadamard(qbit const& q);
 -----------
 
 ```c++
-void pauli_x(qbit const& q);
+void qc::pauli_x(qbit const& q);
 ```
 
 パウリ Y ゲート
 -----------
 
 ```c++
-void pauli_y(qbit const& q);
+void qc::pauli_y(qbit const& q);
 ```
 
 パウリ Z ゲート
 -----------
 
 ```c++
-void pauli_z(qbit const& q);
+void qc::pauli_z(qbit const& q);
 ```
 
 位相ゲート
 -------
 
 ```c++
-void cphase(qbit const& q, std::complex<double> const& phase);
+void qc::cphase(qbit const& q, std::complex<double> const& phase);
 ```
 
 ここでは phase には位相 $\theta$ ではなく ${e}^{i \theta}$ を与える。
@@ -94,14 +94,14 @@ void cphase(qbit const& q, std::complex<double> const& phase);
 -----------
 
 ```c++
-void cnot(qbit const& control_q, qbit const& target_q);
+void qc::cnot(qbit const& control_q, qbit const& target_q);
 ```
 
 観測
 ===
 
 ```c++
-bool measure(qbit const& q);
+bool qc::measure(qbit const& q);
 ```
 
 観測を行い、その結果をブール値で返す。

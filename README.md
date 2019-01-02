@@ -94,14 +94,29 @@ void qc::cphase(qbit const& q, std::complex<double> const& phase);
 -----------
 
 ```c++
-void qc::cnot(qbit const& control_q, qbit const& target_q);
+void qc::cx(qbit const& control_q, qbit const& target_q);
+void qc::ccx(qbit const& control1_q, qbit const& control2_q,
+             qbit const& target_q);
 ```
 
 観測
-===
+----
 
 ```c++
 bool qc::measure(qbit const& q);
 ```
 
 観測を行い、その結果をブール値で返す。
+
+テストプログラム
+===========
+
+```
+test_add <n_bits> <n_loop>
+```
+指定されたビット数での足し算を行い、指定された回数の測定を繰り返す。
+
+```
+test_teleport
+```
+量子テレポーテーションのテスト。

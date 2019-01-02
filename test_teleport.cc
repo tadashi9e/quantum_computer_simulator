@@ -1,18 +1,19 @@
-#include "qc.h"
+// -*- coding:utf-8-unix;mode:c++ -*-
 #include <iostream>
+#include "qc.h"
 
-void epr(qc::qbit& a,
-         qc::qbit& b) {
+void epr(qc::qbit const& a,
+         qc::qbit const& b) {
   hadamard(a);
-  qc::cnot(a, b);
+  qc::cx(a, b);
 }
 
-void teleport(qc::qbit& msg,
-              qc::qbit& here,
-              qc::qbit& there) {
+void teleport(qc::qbit const& msg,
+              qc::qbit const& here,
+              qc::qbit const& there) {
   epr(here, there);
   qc::dump("EPR");
-  qc::cnot(msg, here);
+  qc::cx(msg, here);
   qc::dump("CNOT(msg, here)");
   qc::hadamard(msg);
   qc::dump("H(msg)");
@@ -37,9 +38,9 @@ int main(int argc, char* argv[]) {
   qc::qbit there("there");
   // ---- 初期化
   qc::reset();
-  //qc::dump("reset");
-  //qc::hadamard(msg);
-  //qc::pauli_x(msg);
+  // qc::dump("reset");
+  // qc::hadamard(msg);  qc::dump("hadamard(msg)");
+  // qc::pauli_x(msg);  qc::dump("pauli_x(msg)");
   qc::dump("start teleportation");
   // ---- 量子テレポート実行
   teleport(msg, here, there);

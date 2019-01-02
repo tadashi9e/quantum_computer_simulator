@@ -1,8 +1,9 @@
-// -*- coding:utf-8;mode:c++ -*-
-#ifndef QC_H
-#define QC_H
+// -*- coding:utf-8-unix;mode:c++ -*-
+#ifndef QC_H_
+#define QC_H_
 
 #include <complex>
+#include <string>
 #include <boost/shared_ptr.hpp>
 
 namespace qc {
@@ -15,7 +16,7 @@ namespace qc {
  * デバッグ表示の便宜のために名称を設定することができる。
  */
 class qbit {
-public:
+ public:
   /**
    * qbit のコンストラクタ
    */
@@ -23,13 +24,13 @@ public:
   /**
    * qbit のコンストラクタ（名称を与える）
    */
-  qbit(std::string const& name);
+  explicit qbit(std::string const& name);
   void set_name(std::string const& name);
   std::string const& get_name();
   int get_id() const;
   std::string str() const;
   struct q_impl;
-private:
+ private:
   boost::shared_ptr<q_impl> impl;
 };
 
@@ -43,18 +44,15 @@ extern void reset();
 extern double measure(qbit const& q, bool is_up);
 extern bool measure(qbit const& q);
 extern void hadamard(qbit const& q);
-extern void dump_hadamard(qbit const& q);
 extern void pauli_x(qbit const& q);
-extern void dump_pauli_x(qbit const& q);
 extern void pauli_y(qbit const& q);
-extern void dump_pauli_y(qbit const& q);
 extern void pauli_z(qbit const& q);
-extern void dump_pauli_z(qbit const& q);
-extern void cnot(qbit const& control_q, qbit const& target_q);
-extern void dump_cnot(qbit const& control_q, qbit const& target_q);
-void cphase(qbit const& q, std::complex<double> const& phase);
+extern void cx(qbit const& control_q, qbit const& target_q);
+extern void ccx(qbit const& control1_q, qbit const& control2_q,
+                qbit const& target_q);
+extern void cphase(qbit const& q, std::complex<double> const& phase);
 
 
-}
+}  // namespace qc
 
-#endif
+#endif  // QC_H_

@@ -1,6 +1,8 @@
+// -*- coding:utf-8-unix;mode:c++ -*-
 #include "qc.h"
 #include <sys/time.h>
 #include <iostream>
+#include <map>
 #include <vector>
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
@@ -15,10 +17,9 @@ namespace qc {
 class Random01 {
   boost::random::random_device rnd_dev;
   boost::random::mt19937 rnd_gen;
-public:
+ public:
   Random01() : rnd_gen(rnd_dev()) {
   }
-  
   double get_random() {
     boost::random::uniform_01<double> rnd01;
     double rnd = rnd01(rnd_gen);
@@ -28,11 +29,12 @@ public:
 
 Random01 random01;
 
+typedef std::map<size_t, std::complex<double> > amplitudes_t;
 /**
  * 右から順に出現順に量子変数を並べたときの
  * |000...000> から |111...111> までの確率振幅。
  */
-static std::vector<std::complex<double> > q_amplitudes;
+static amplitudes_t q_amplitudes;
 /**
  * 計算対象の量子変数
  */
@@ -44,9 +46,6 @@ static std::vector<qbit> qbits;
 static int
 new_qbit_id() {
   int id = qbits.size();
-  while(q_amplitudes.size() < ((size_t)1 << (id + 1))) {
-    q_amplitudes.push_back(std::complex<double>());
-  }
   return id;
 }
 
@@ -102,7 +101,7 @@ std::string qbit::str() const {
 static std::string bitset_of(size_t n, size_t max_n) {
   std::string result;
   size_t pow_i = 1;
-  for(size_t i = 0;;++i) {
+  for (size_t i = 0; ; ++i) {
     result += (n & ((size_t)1 << i)) ? '1' : '0';
     pow_i *= 2;
     if (pow_i >= max_n) {
@@ -112,21 +111,27 @@ static std::string bitset_of(size_t n, size_t max_n) {
   return result;
 }
 
+static double amplitude(std::complex<double> const& q_amp) {
+  return q_amp.real() * q_amp.real() + q_amp.imag() * q_amp.imag();
+}
+
 /**
  * 量子変数の状態を表示する。
  */
-void dump(std::string const& title) {
+  void dump(std::string const& title) {
   std::cout << "===== " << title << " =====" << std::endl;
   std::cout << "-- qbits --" << std::endl;
   BOOST_FOREACH(qbit& qbit, qbits) {
     std::cout << qbit.str() << std::endl;
   }
   std::cout << "-- states --" << std::endl;
-  for(size_t i = 0;i < q_amplitudes.size();++i) {
-    std::cout << bitset_of(i, q_amplitudes.size())
+  BOOST_FOREACH(amplitudes_t::value_type const& v, q_amplitudes) {
+    size_t basis(v.first);
+    std::complex<double> const& q_amp(v.second);
+    std::cout << bitset_of(basis, 1 << qbits.size())
               << ": |"
-              << q_amplitudes[i]
-              << "| = " << amplitude(q_amplitudes[i])
+              << q_amp
+              << "| = " << amplitude(q_amp)
               << std::endl;
   }
 }
@@ -137,13 +142,8 @@ void dump(std::string const& title) {
  */
 void
 reset() {
-  if (q_amplitudes.size() == 0) {
-    return;
-  }
+  q_amplitudes.clear();
   q_amplitudes[0] = std::complex<double>(1, 0);
-  for(size_t i = 1;i < q_amplitudes.size();++i) {
-    q_amplitudes[i] = std::complex<double>();
-  }
 }
 // ----------------------------------------------------------------------
 
@@ -242,11 +242,15 @@ static std::complex<double> op_pauli_z(size_t j, size_t i) {
 }
 
 static std::complex<double> op_downside(size_t j, size_t i) {
-  return (i == 0 && j == 0) ? std::complex<double>(1, 0) : std::complex<double>();
+  return (i == 0 && j == 0)
+    ? std::complex<double>(1, 0)
+    : std::complex<double>();
 }
 
 static std::complex<double> op_upside(size_t j, size_t i) {
-  return (i == 1 && j == 1) ? std::complex<double>(1, 0) : std::complex<double>();
+  return (i == 1 && j == 1)
+    ? std::complex<double>(1, 0)
+    : std::complex<double>();
 }
 
 /**
@@ -258,116 +262,146 @@ tensor_product(boost::function<std::complex<double>(size_t, size_t)> op1,
                size_t j, size_t i) {
   assert(j < 4);
   assert(i < 4);
-  return op1(j >> 1, i >> 1) * op2(j & 0x01, i & 0x01);
+  return op1(j & 0x01, i & 0x01) * op2(j >> 1, i >> 1);
+}
+
+/**
+ * 三演算子のテンソル積
+ */
+static std::complex<double>
+tensor_product(boost::function<std::complex<double>(size_t, size_t)> op1,
+               boost::function<std::complex<double>(size_t, size_t)> op2,
+               boost::function<std::complex<double>(size_t, size_t)> op3,
+               size_t j, size_t i) {
+  assert(j < 8);
+  assert(i < 8);
+  return (op1(j & 0x01, i & 0x01) *
+          op2((j >> 1) & 0x01, (i >> 1) & 0x01) *
+          op3(j >> 2, i >> 2));
 }
 
 /**
  * CNOT ゲート
  */
-static std::complex<double> op_cnot(size_t j, size_t i) {
-  return tensor_product(&op_downside, &op_unit, i, j)
-    + tensor_product(&op_upside, &op_pauli_x, i, j);
+static std::complex<double> op_cx(size_t j, size_t i) {
+  return (tensor_product(&op_downside, &op_unit,    i, j) +
+          tensor_product(&op_upside,   &op_pauli_x, i, j));
 }
 
 /**
- * 与えられた演算子を適用する
+ * Toffoli ゲート
  */
-static std::vector<std::complex<double> >
-mat_multiply(boost::function<std::complex<double>(size_t, size_t)> op,
-             std::vector<std::complex<double> > const& values) {
-  std::vector<std::complex<double> > result;
-  for(size_t i = 0;i < values.size();++i) {
-    result.push_back(std::complex<double>());
-  }
-  for(size_t j = 0;j < values.size();++j) {
-    std::complex<double> c;
-    for(size_t i = 0;i < values.size();++i) {
-      c += op(j, i) * values[i];
+static std::complex<double> op_ccx(size_t j, size_t i) {
+  return (tensor_product(&op_downside, &op_downside, &op_unit,    i, j) +
+          tensor_product(&op_upside,   &op_downside, &op_unit,    i, j) +
+          tensor_product(&op_downside, &op_upside,   &op_unit,    i, j) +
+          tensor_product(&op_upside,   &op_upside,   &op_pauli_x, i, j));
+}
+
+static amplitudes_t
+apply_tensor_product(boost::function<std::complex<double>(size_t, size_t)> op,
+                     int id,
+                     amplitudes_t amplitudes) {
+  amplitudes_t amplitudes2;
+  size_t imask(~(static_cast<size_t>(0x01) << id));
+  BOOST_FOREACH(amplitudes_t::value_type const& v, amplitudes) {
+    size_t const basis(v.first);
+    std::complex<double> const& amplitude(v.second);
+    size_t i((basis >> id) & 0x01);
+    for (size_t j = 0; j < 2; ++j) {
+      size_t const target_id((basis & imask) | (j << id));
+      std::complex<double> w(op(j, i));
+      if (w == std::complex<double>()) {
+        continue;
+      }
+      amplitudes2[target_id] += (w * amplitude);
     }
-    result[j] = c;
   }
-  return result;
+  return amplitudes2;
 }
 
-/**
- * id 癌目の量子変数に対して op を適用し、それ以外は I を適用する
- * 演算子のテンソル積
- *
- * I (X) I (X) .....I (X) OP (X) I.....(X) I (X) I
- */
-static std::complex<double>
-op_i_op1_i(boost::function<std::complex<double>(size_t, size_t)> op1,
-                   int id, size_t j, size_t i) {
-  size_t mask = ~(static_cast<size_t>(0x01) << id);
-  if ((mask & i) != (mask & j)) {
-    return std::complex<double>();
-  }
-  size_t j1 = (j >> id) & 0x01;
-  size_t i1 = (i >> id) & 0x01;
-  return op1(j1, i1);
-}
-
-/**
- * id1 癌目の量子変数に対して op1 を
- * id2 癌目の量子変数に対して op2 を適用し、それ以外は I を適用する
- * 演算子のテンソル積
- *
- * I (X) ... I (X) OP1 (X) I ...(X) I (X) OP2 (X) I ... (X) I
- */
-static std::complex<double>
-op_i_op2_i(boost::function<std::complex<double>(size_t,size_t)> op2,
-                   int id2, int id1, size_t j, size_t i) {
-  size_t mask2 = static_cast<size_t>(0x01) << id2;
-  size_t mask1 = static_cast<size_t>(0x01) << id1;
-  size_t mask = ~(mask1 | mask2);
-  if ((mask & i) != (mask & j)) {
-    return std::complex<double>();
-  }
-  size_t j2 = ((j & mask2) == 0) ? 0 : 1;
-  size_t i2 = ((i & mask2) == 0) ? 0 : 1;
-  size_t j1 = ((j & mask1) == 0) ? 0 : 1;
-  size_t i1 = ((i & mask1) == 0) ? 0 : 1;
-  return op2((i2 << 1) | i1, (j2 << 1) | j1);
-}
-
-void
-dump_operator(boost::function<std::complex<double>(size_t, size_t)> op) {
-  for(size_t j = 0;j < q_amplitudes.size();++j) {
-    for(size_t i = 0;i < q_amplitudes.size();++i) {
-      std::cout << op(j, i) << " , ";
+static amplitudes_t
+apply_tensor_product(boost::function<std::complex<double>(size_t, size_t)> op2,
+                     int id1, int id2,
+                     amplitudes_t amplitudes) {
+  amplitudes_t amplitudes2;
+  size_t imask(~((static_cast<size_t>(0x01) << id1) |
+                 (static_cast<size_t>(0x01) << id2)));
+  BOOST_FOREACH(amplitudes_t::value_type const& v, amplitudes) {
+    size_t const basis(v.first);
+    std::complex<double> const& amplitude(v.second);
+    size_t const i1((basis >> id1) & 0x01);
+    size_t const i2((basis >> id2) & 0x01);
+    size_t const i((i2 << 1) | i1);
+    for (size_t j = 0; j < 4; ++j) {
+      std::complex<double> w(op2(j, i));
+      if (w == std::complex<double>()) {
+        continue;
+      }
+      size_t const j2((j >> 1) & 0x01);
+      size_t const j1(j & 0x01);
+      size_t const target_id((basis & imask) | (j1 << id1) | (j2 << id2));
+      amplitudes2[target_id] += w * amplitude;
     }
-    std::cout << std::endl;
   }
+  return amplitudes2;
+}
+
+static amplitudes_t
+apply_tensor_product(boost::function<std::complex<double>(size_t, size_t)> op3,
+                     int id1, int id2, int id3,
+                     amplitudes_t amplitudes) {
+  amplitudes_t amplitudes2;
+  size_t imask(~((static_cast<size_t>(0x01) << id1) |
+                 (static_cast<size_t>(0x01) << id2) |
+                 (static_cast<size_t>(0x01) << id3)));
+  BOOST_FOREACH(amplitudes_t::value_type const& v, amplitudes) {
+    size_t basis(v.first);
+    std::complex<double> const& amplitude(v.second);
+    size_t const i1((basis >> id1) & 0x01);
+    size_t const i2((basis >> id2) & 0x01);
+    size_t const i3((basis >> id3) & 0x01);
+    size_t const i((i3 << 2) | (i2 << 1) | i1);
+    for (size_t j = 0; j < 8; ++j) {
+      std::complex<double> w(op3(j, i));
+      if (w == std::complex<double>()) {
+        continue;
+      }
+      size_t const j3((j >> 2) & 0x01);
+      size_t const j2((j >> 1) & 0x01);
+      size_t const j1(j & 0x01);
+      size_t const target_id((basis & imask) |
+                             (j1 << id1) | (j2 << id2) | (j3 << id3));
+      amplitudes2[target_id] += w * amplitude;
+    }
+  }
+  return amplitudes2;
 }
 
 static double
 op_measure(int id, bool is_up) {
   double p = 0;
   size_t mask = static_cast<size_t>(0x01) << id;
-  for(size_t n = 0;n < q_amplitudes.size();++n) {
-    bool b = ((n & mask) == 0) ? false : true;
+  BOOST_FOREACH(amplitudes_t::value_type const& v, q_amplitudes) {
+    size_t const basis(v.first);
+    std::complex<double> const& q_amp(v.second);
+    bool b = ((basis & mask) == 0) ? false : true;
     if (b == is_up) {
-      p += amplitude(q_amplitudes[n]);
+      p += amplitude(q_amp);
     }
   }
   if (p != 0) {
     double w = 1.0 / sqrt(p);
-    for(size_t n = 0;n < q_amplitudes.size();++n) {
-      bool b = ((n & mask) == 0) ? false : true;
+    for (amplitudes_t::iterator iter = q_amplitudes.begin();
+        iter != q_amplitudes.end();) {
+      size_t const basis(iter->first);
+      std::complex<double>& q_amp(iter->second);
+      bool b = ((basis & mask) == 0) ? false : true;
       if (b != is_up) {
-        q_amplitudes[n] = std::complex<double>();
+        iter = q_amplitudes.erase(iter);
       } else {
-        q_amplitudes[n] *= w;
-      }
-    }
-  } else {
-    double w = 1.0 / sqrt(q_amplitudes.size());
-    for(size_t n = 0;n < q_amplitudes.size();++n) {
-      bool b = ((n & mask) == 0) ? false : true;
-      if (b != is_up) {
-        q_amplitudes[n] = std::complex<double>();
-      } else {
-        q_amplitudes[n] = std::complex<double>(w, 0);
+        q_amp *= w;
+        ++iter;
       }
     }
   }
@@ -379,24 +413,29 @@ op_measure(int id) {
   double p0 = 0;
   double p1 = 0;
   size_t mask = static_cast<size_t>(0x01) << id;
-  for(size_t n = 0;n < q_amplitudes.size();++n) {
-    bool b = ((n & mask) == 0) ? false : true;
-    double a = amplitude(q_amplitudes[n]);
+  BOOST_FOREACH(amplitudes_t::value_type const& v, q_amplitudes) {
+    size_t const basis(v.first);
+    std::complex<double> const& q_amp(v.second);
+    bool b = ((basis & mask) == 0) ? false : true;
     if (b) {
-      p1 += a;
+      p1 += amplitude(q_amp);
     } else {
-      p0 += a;
+      p0 += amplitude(q_amp);
     }
   }
   bool is_up = (p1 > random01.get_random()) ? true : false;
   double p = is_up ? p1 : p0;
   double w = 1.0 / sqrt(p);
-  for(size_t n = 0;n < q_amplitudes.size();++n) {
-    bool b = ((n & mask) == 0) ? false : true;
+  for (amplitudes_t::iterator iter = q_amplitudes.begin();
+      iter != q_amplitudes.end();) {
+    size_t const basis(iter->first);
+    std::complex<double>& q_amp(iter->second);
+    bool b = ((basis & mask) == 0) ? false : true;
     if (b != is_up) {
-      q_amplitudes[n] = std::complex<double>();
+      iter = q_amplitudes.erase(iter);
     } else {
-      q_amplitudes[n] *= w;
+      q_amp *= w;
+      ++iter;
     }
   }
   return is_up;
@@ -404,89 +443,55 @@ op_measure(int id) {
 
 double
 measure(qbit const& q, bool is_up) {
-  int id = q.get_id();
+  int const id(q.get_id());
   return op_measure(id, is_up);
 }
 
 bool
 measure(qbit const& q) {
-  int id = q.get_id();
+  int const id(q.get_id());
   return op_measure(id);
 }
 
 void
 hadamard(qbit const& q) {
-  int id = q.get_id();
-  q_amplitudes = mat_multiply(boost::bind(&op_i_op1_i, &op_hadamard, id, _1, _2),
-                              q_amplitudes);
+  int const id(q.get_id());
+  q_amplitudes = apply_tensor_product(op_hadamard, id, q_amplitudes);
 }
-void
-dump_hadamard(qbit const& q) {
-  int id = q.get_id();
-  dump_operator(boost::bind(&op_i_op1_i, op_hadamard, id, _1, _2));
-}
-
 void
 cphase(qbit const& q, std::complex<double> const& phase) {
-  int id = q.get_id();
-  boost::function<std::complex<double>(size_t, size_t)> op = boost::bind(&op_cphase, phase, _1, _2);
-  q_amplitudes = mat_multiply(boost::bind(&op_i_op1_i,
-                                      op, id, _1, _2),
-                              q_amplitudes);
-}
-
-void
-dump_cphase(qbit const& q, std::complex<double> const& phase) {
-  int id = q.get_id();
+  int const id(q.get_id());
   boost::function<std::complex<double>(size_t, size_t)>
-    op = boost::bind(&op_cphase, phase, _1, _2);
-  dump_operator(boost::bind(&op_i_op1_i,
-                            op, id, _1, _2));
+    op(boost::bind(&op_cphase, phase, _1, _2));
+  q_amplitudes = apply_tensor_product(op, id, q_amplitudes);
 }
-
 void pauli_x(qbit const& q) {
-  int id = q.get_id();
-  q_amplitudes = mat_multiply(boost::bind(&op_i_op1_i, op_pauli_x, id, _1, _2),
-                              q_amplitudes);
+  int const id(q.get_id());
+  q_amplitudes = apply_tensor_product(op_pauli_x, id, q_amplitudes);
 }
-void dump_pauli_x(qbit const& q) {
-  int id = q.get_id();
-  dump_operator(boost::bind(&op_i_op1_i, op_pauli_x, id, _1, _2));
-}
-
 void pauli_y(qbit const& q) {
-  int id = q.get_id();
-  q_amplitudes = mat_multiply(boost::bind(&op_i_op1_i, op_pauli_y, id, _1, _2),
-                          q_amplitudes);
+  int const id(q.get_id());
+  q_amplitudes = apply_tensor_product(op_pauli_y, id, q_amplitudes);
 }
-void dump_pauli_y(qbit const& q) {
-  int id = q.get_id();
-  dump_operator(boost::bind(&op_i_op1_i, op_pauli_y, id, _1, _2));
-}
-
 void pauli_z(qbit const& q) {
-  int id = q.get_id();
-  q_amplitudes = mat_multiply(boost::bind(&op_i_op1_i, op_pauli_z, id, _1, _2),
-                              q_amplitudes);
+  int const id(q.get_id());
+  q_amplitudes = apply_tensor_product(op_pauli_z, id, q_amplitudes);
 }
-void dump_pauli_z(qbit const& q) {
-  int id = q.get_id();
-  dump_operator(boost::bind(&op_i_op1_i, op_pauli_z, id, _1, _2));
+void cx(qbit const& control_q, qbit const& target_q) {
+  int const control_id(control_q.get_id());
+  int const target_id(target_q.get_id());
+  q_amplitudes = apply_tensor_product(op_cx, control_id, target_id,
+                                      q_amplitudes);
 }
-
-void cnot(qbit const& control_q, qbit const& target_q) {
-  int control_id = control_q.get_id();
-  int target_id = target_q.get_id();
-  q_amplitudes = mat_multiply(boost::bind(&op_i_op2_i, op_cnot,
-                                          control_id, target_id,
-                                          _1, _2),
-                              q_amplitudes);
-}
-void dump_cnot(qbit const& control_q, qbit const& target_q) {
-  int control_id = control_q.get_id();
-  int target_id = target_q.get_id();
-  dump_operator(boost::bind(&op_i_op2_i, op_cnot, control_id, target_id,
-                            _1, _2));
+void ccx(qbit const& control1_q,
+         qbit const& control2_q,
+         qbit const& target_q) {
+  int const control1_id(control1_q.get_id());
+  int const control2_id(control2_q.get_id());
+  int const target_id(target_q.get_id());
+  q_amplitudes = apply_tensor_product(op_ccx, control1_id, control2_id,
+                                      target_id,
+                                      q_amplitudes);
 }
 
-}
+}  // namespace qc

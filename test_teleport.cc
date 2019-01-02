@@ -1,4 +1,5 @@
 // -*- coding:utf-8-unix;mode:c++ -*-
+// Copyright [2019] tadashi9e
 #include <iostream>
 #include "qc.h"
 

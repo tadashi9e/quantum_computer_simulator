@@ -1,4 +1,5 @@
 // -*- coding:utf-8-unix;mode:c++ -*-
+// Copyright [2019] tadashi9e
 #include "qc.h"
 #include <sys/time.h>
 #include <iostream>
@@ -258,11 +259,10 @@ static std::complex<double> op_upside(size_t j, size_t i) {
  */
 static std::complex<double>
 tensor_product(boost::function<std::complex<double>(size_t, size_t)> op1,
+               size_t j1, size_t i1,
                boost::function<std::complex<double>(size_t, size_t)> op2,
-               size_t j, size_t i) {
-  assert(j < 4);
-  assert(i < 4);
-  return op1(j & 0x01, i & 0x01) * op2(j >> 1, i >> 1);
+               size_t j2, size_t i2) {
+  return op1(j1, i1) * op2(j2, i2);
 }
 
 /**
@@ -270,32 +270,43 @@ tensor_product(boost::function<std::complex<double>(size_t, size_t)> op1,
  */
 static std::complex<double>
 tensor_product(boost::function<std::complex<double>(size_t, size_t)> op1,
+               size_t j1, size_t i1,
                boost::function<std::complex<double>(size_t, size_t)> op2,
+               size_t j2, size_t i2,
                boost::function<std::complex<double>(size_t, size_t)> op3,
-               size_t j, size_t i) {
-  assert(j < 8);
-  assert(i < 8);
-  return (op1(j & 0x01, i & 0x01) *
-          op2((j >> 1) & 0x01, (i >> 1) & 0x01) *
-          op3(j >> 2, i >> 2));
+               size_t j3, size_t i3) {
+  return (op1(j1, i1) *
+          op2(j2, i2) *
+          op3(j3, i3));
 }
 
 /**
  * CNOT ゲート
  */
-static std::complex<double> op_cx(size_t j, size_t i) {
-  return (tensor_product(&op_downside, &op_unit,    i, j) +
-          tensor_product(&op_upside,   &op_pauli_x, i, j));
+static std::complex<double> op_cx(size_t j1, size_t i1,
+                                  size_t j2, size_t i2) {
+  return (tensor_product(&op_downside, j1, i1, &op_unit,    j2, i2) +
+          tensor_product(&op_upside,   j1, i1, &op_pauli_x, j2, i2));
 }
 
 /**
  * Toffoli ゲート
  */
-static std::complex<double> op_ccx(size_t j, size_t i) {
-  return (tensor_product(&op_downside, &op_downside, &op_unit,    i, j) +
-          tensor_product(&op_upside,   &op_downside, &op_unit,    i, j) +
-          tensor_product(&op_downside, &op_upside,   &op_unit,    i, j) +
-          tensor_product(&op_upside,   &op_upside,   &op_pauli_x, i, j));
+static std::complex<double> op_ccx(size_t j1, size_t i1,
+                                   size_t j2, size_t i2,
+                                   size_t j3, size_t i3) {
+  return (tensor_product(&op_downside, j1, i1,
+                         &op_downside, j2, i2,
+                         &op_unit,     j3, i3) +
+          tensor_product(&op_upside,   j1, i1,
+                         &op_downside, j2, i2,
+                         &op_unit,     j3, i3) +
+          tensor_product(&op_downside, j1, i1,
+                         &op_upside,   j2, i2,
+                         &op_unit,     j3, i3) +
+          tensor_product(&op_upside,   j1, i1,
+                         &op_upside,   j2, i2,
+                         &op_pauli_x,  j3, i3));
 }
 
 static amplitudes_t
@@ -321,7 +332,8 @@ apply_tensor_product(boost::function<std::complex<double>(size_t, size_t)> op,
 }
 
 static amplitudes_t
-apply_tensor_product(boost::function<std::complex<double>(size_t, size_t)> op2,
+apply_tensor_product(boost::function<std::complex<double>(size_t, size_t,
+                                                          size_t, size_t)> op2,
                      int id1, int id2,
                      amplitudes_t amplitudes) {
   amplitudes_t amplitudes2;
@@ -332,23 +344,24 @@ apply_tensor_product(boost::function<std::complex<double>(size_t, size_t)> op2,
     std::complex<double> const& amplitude(v.second);
     size_t const i1((basis >> id1) & 0x01);
     size_t const i2((basis >> id2) & 0x01);
-    size_t const i((i2 << 1) | i1);
-    for (size_t j = 0; j < 4; ++j) {
-      std::complex<double> w(op2(j, i));
-      if (w == std::complex<double>()) {
-        continue;
+    for (size_t j2 = 0; j2 < 2; ++j2) {
+      for (size_t j1 = 0; j1 < 2; ++j1) {
+        std::complex<double> w(op2(j1, i1, j2, i2));
+        if (w == std::complex<double>()) {
+          continue;
+        }
+        size_t const target_id((basis & imask) | (j1 << id1) | (j2 << id2));
+        amplitudes2[target_id] += w * amplitude;
       }
-      size_t const j2((j >> 1) & 0x01);
-      size_t const j1(j & 0x01);
-      size_t const target_id((basis & imask) | (j1 << id1) | (j2 << id2));
-      amplitudes2[target_id] += w * amplitude;
     }
   }
   return amplitudes2;
 }
 
 static amplitudes_t
-apply_tensor_product(boost::function<std::complex<double>(size_t, size_t)> op3,
+apply_tensor_product(boost::function<std::complex<double>(size_t, size_t,
+                                                          size_t, size_t,
+                                                          size_t, size_t)> op3,
                      int id1, int id2, int id3,
                      amplitudes_t amplitudes) {
   amplitudes_t amplitudes2;
@@ -361,18 +374,18 @@ apply_tensor_product(boost::function<std::complex<double>(size_t, size_t)> op3,
     size_t const i1((basis >> id1) & 0x01);
     size_t const i2((basis >> id2) & 0x01);
     size_t const i3((basis >> id3) & 0x01);
-    size_t const i((i3 << 2) | (i2 << 1) | i1);
-    for (size_t j = 0; j < 8; ++j) {
-      std::complex<double> w(op3(j, i));
-      if (w == std::complex<double>()) {
-        continue;
+    for (size_t j3 = 0; j3 < 2; ++j3) {
+      for (size_t j2 = 0; j2 < 2; ++j2) {
+        for (size_t j1 = 0; j1 < 2; ++j1) {
+          std::complex<double> w(op3(j1, i1, j2, i2, j3, i3));
+          if (w == std::complex<double>()) {
+            continue;
+          }
+          size_t const target_id((basis & imask) |
+                                 (j1 << id1) | (j2 << id2) | (j3 << id3));
+          amplitudes2[target_id] += w * amplitude;
+        }
       }
-      size_t const j3((j >> 2) & 0x01);
-      size_t const j2((j >> 1) & 0x01);
-      size_t const j1(j & 0x01);
-      size_t const target_id((basis & imask) |
-                             (j1 << id1) | (j2 << id2) | (j3 << id3));
-      amplitudes2[target_id] += w * amplitude;
     }
   }
   return amplitudes2;

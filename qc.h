@@ -1,4 +1,5 @@
 // -*- coding:utf-8-unix;mode:c++ -*-
+// Copyright [2019] tadashi9e
 #ifndef QC_H_
 #define QC_H_
 

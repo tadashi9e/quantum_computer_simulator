@@ -23,7 +23,22 @@ q_add3(qc::qbit const& a,
 }
 
 /**
- * 与えられた量子ビットについて加算を実行する
+ * 加算に利用した量子変数を 0 に戻す
+ */
+void
+q_add3_cleanup(qc::qbit const& a,
+               qc::qbit const& b,
+               qc::qbit const& c,
+               qc::qbit const& t) {
+  qc::ccx(a, b, t);
+  qc::ccx(b, c, t);
+  qc::ccx(c, a, t);
+}
+
+/**
+ * 与えられた量子ビットについて加算を実行する。
+ *
+ * t はすべて 0 に初期化されていなければならない。
  */
 void
 q_add(std::vector<qc::qbit> const& a,
@@ -40,8 +55,15 @@ q_add(std::vector<qc::qbit> const& a,
              s[i], s[i + 1]);
     }
   }
+  // ゴミを消す
+  for (int i = n-2; i >= 0; --i) {
+    q_add3_cleanup(a[i], b[i], t[i], t[i + 1]);
+  }
 }
 
+/**
+ * 与えられた量子変数すべてにアダマールゲートを適用する。
+ */
 void
 hadamard(std::vector<qc::qbit> const& qs) {
   BOOST_FOREACH(qc::qbit const& q, qs) {
@@ -49,6 +71,9 @@ hadamard(std::vector<qc::qbit> const& qs) {
   }
 }
 
+/**
+ * 与えられた量子変数全てについて測定を行い、数値として返す。
+ */
 int
 as_c_number(std::vector<qc::qbit> const& qs) {
   int n = 0;
@@ -94,6 +119,7 @@ main(int argc, char* argv[]) {
   qc::reset();
   hadamard(a);
   hadamard(b);
+  // a + b = c を計算する
   // qc::dump("add start");
   q_add(a, b, s, t);
   // qc::dump("after add");

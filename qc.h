@@ -53,6 +53,7 @@ extern void pauli_z(qbit const& q);
 extern void cx(qbit const& control_q, qbit const& target_q);
 extern void ccx(qbit const& control1_q, qbit const& control2_q,
                 qbit const& target_q);
+extern void cz(qbit const& control_q, qbit const& target_q);
 extern void cphase(qbit const& q, std::complex<double> const& phase);
 
 

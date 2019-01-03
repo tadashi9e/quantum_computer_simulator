@@ -165,7 +165,6 @@ void restore(frozen_ptr const& frozenptr) {
   q_amplitudes = frozenptr->get();
 }
 
-  
 // ----------------------------------------------------------------------
 
 /**
@@ -308,6 +307,11 @@ static std::complex<double> op_cx(size_t j1, size_t i1,
   return (tensor_product(&op_downside, j1, i1, &op_unit,    j2, i2) +
           tensor_product(&op_upside,   j1, i1, &op_pauli_x, j2, i2));
 }
+static std::complex<double> op_cz(size_t j1, size_t i1,
+                                  size_t j2, size_t i2) {
+  return (tensor_product(&op_downside, j1, i1, &op_unit,    j2, i2) +
+          tensor_product(&op_upside,   j1, i1, &op_pauli_z, j2, i2));
+}
 
 /**
  * Toffoli ゲート
@@ -327,6 +331,22 @@ static std::complex<double> op_ccx(size_t j1, size_t i1,
           tensor_product(&op_upside,   j1, i1,
                          &op_upside,   j2, i2,
                          &op_pauli_x,  j3, i3));
+}
+static std::complex<double> op_ccz(size_t j1, size_t i1,
+                                   size_t j2, size_t i2,
+                                   size_t j3, size_t i3) {
+  return (tensor_product(&op_downside, j1, i1,
+                         &op_downside, j2, i2,
+                         &op_unit,     j3, i3) +
+          tensor_product(&op_upside,   j1, i1,
+                         &op_downside, j2, i2,
+                         &op_unit,     j3, i3) +
+          tensor_product(&op_downside, j1, i1,
+                         &op_upside,   j2, i2,
+                         &op_unit,     j3, i3) +
+          tensor_product(&op_upside,   j1, i1,
+                         &op_upside,   j2, i2,
+                         &op_pauli_z,  j3, i3));
 }
 
 static amplitudes_t
@@ -516,6 +536,12 @@ void cx(qbit const& control_q, qbit const& target_q) {
   q_amplitudes = apply_tensor_product(op_cx, control_id, target_id,
                                       q_amplitudes);
 }
+void cz(qbit const& control_q, qbit const& target_q) {
+  int const control_id(control_q.get_id());
+  int const target_id(target_q.get_id());
+  q_amplitudes = apply_tensor_product(op_cz, control_id, target_id,
+                                      q_amplitudes);
+}
 void ccx(qbit const& control1_q,
          qbit const& control2_q,
          qbit const& target_q) {
@@ -523,6 +549,16 @@ void ccx(qbit const& control1_q,
   int const control2_id(control2_q.get_id());
   int const target_id(target_q.get_id());
   q_amplitudes = apply_tensor_product(op_ccx, control1_id, control2_id,
+                                      target_id,
+                                      q_amplitudes);
+}
+void ccz(qbit const& control1_q,
+         qbit const& control2_q,
+         qbit const& target_q) {
+  int const control1_id(control1_q.get_id());
+  int const control2_id(control2_q.get_id());
+  int const target_id(target_q.get_id());
+  q_amplitudes = apply_tensor_product(op_ccz, control1_id, control2_id,
                                       target_id,
                                       q_amplitudes);
 }

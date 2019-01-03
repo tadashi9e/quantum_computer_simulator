@@ -91,14 +91,17 @@ main(int argc, char* argv[]) {
   b.resize(nbits);
   t.resize(nbits);
   s.resize(nbits + 1);
+  qc::reset();
+  hadamard(a);
+  hadamard(b);
+  // qc::dump("add start");
+  q_add(a, b, s, t);
+  // qc::dump("after add");
+
+  qc::frozen_ptr backup = qc::backup();
   for (int i = 0; i < nloop; ++i) {
-    qc::reset();
-    hadamard(a);
-    hadamard(b);
-    // qc::dump("add start");
-    q_add(a, b, s, t);
-    // qc::dump("after add");
     std::cout << as_c_number(a) << "+" << as_c_number(b) <<
       "=" << as_c_number(s) << std::endl;
+    qc::restore(backup);
   }
 }

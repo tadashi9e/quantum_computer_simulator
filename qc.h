@@ -35,13 +35,15 @@ class qbit {
   boost::shared_ptr<q_impl> impl;
 };
 
-template<typename T>
-T amplitude(std::complex<T> const& c) {
-  return c.real() * c.real() + c.imag() * c.imag();
-}
-
 extern void dump(std::string const& title);
 extern void reset();
+
+class frozen;
+typedef boost::shared_ptr<frozen> frozen_ptr;
+
+extern frozen_ptr backup();
+extern void restore(frozen_ptr const& frozenptr);
+
 extern double measure(qbit const& q, bool is_up);
 extern bool measure(qbit const& q);
 extern void hadamard(qbit const& q);

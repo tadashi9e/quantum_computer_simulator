@@ -24,14 +24,14 @@ qc.h をヘッダファイルとして以下の内容のシミュレーション
 記述したプログラムを qc.cc とともにコンパイルする。
 
 量子ビットの宣言
-============
+----------------
 
 コンストラクタ qc::qbit() あるいは 
 qc::qbit(std::string const& name) で量子ゲートを宣言する。
 引数に名前を与えられた場合には、デバッグ時にその名前付きで表示する。
 
 初期化
-======
+------
 
 ```c++
 void qc::reset()
@@ -39,20 +39,10 @@ void qc::reset()
 
 |000...000> の確率を 1 にする。それ以外は 0。
 
-デバッグ表示
-=========
-
-```c++
-void qc::dump(std::string const& title);
-```
-
-量子ビットの一覧、および、その時点での各状態の振幅を表示する。
-
 演算操作
-======
+--------
 
-アダマールゲート
-------------
+#### アダマールゲート
 
 ```c++
 void qc::hadamard(qbit const& q);
@@ -60,29 +50,25 @@ void qc::hadamard(qbit const& q);
 
 量子変数 q にアダマール変換を行う。
 
-パウリ X ゲート
------------
+#### パウリ X ゲート
 
 ```c++
 void qc::pauli_x(qbit const& q);
 ```
 
-パウリ Y ゲート
------------
+#### パウリ Y ゲート
 
 ```c++
 void qc::pauli_y(qbit const& q);
 ```
 
-パウリ Z ゲート
------------
+#### パウリ Z ゲート
 
 ```c++
 void qc::pauli_z(qbit const& q);
 ```
 
-位相ゲート
--------
+#### 位相ゲート
 
 ```c++
 void qc::cphase(qbit const& q, std::complex<double> const& phase);
@@ -90,8 +76,7 @@ void qc::cphase(qbit const& q, std::complex<double> const& phase);
 
 ここでは phase には位相 $\theta$ ではなく ${e}^{i \theta}$ を与える。
 
-制御ノットゲート
------------
+#### 制御ノットゲート
 
 ```c++
 void qc::cx(qbit const& control_q, qbit const& target_q);
@@ -107,6 +92,26 @@ bool qc::measure(qbit const& q);
 ```
 
 観測を行い、その結果をブール値で返す。
+
+現実の量子計算機ではありえない操作
+----------------------------------
+
+#### デバッグ表示
+
+```c++
+void qc::dump(std::string const& title);
+```
+
+量子ビットの一覧、および、その時点での各状態の振幅を表示する。
+
+#### 量子状態のバックアップ作成、およびそのリストア
+
+```c++
+extern frozen_ptr backup();
+extern void restore(frozen_ptr const& frozenptr);
+```
+
+同じ量子状態について測定操作を繰り返す場合などにおいて、計算時間を節約するために用いる。
 
 テストプログラム
 ===========

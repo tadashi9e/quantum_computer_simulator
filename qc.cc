@@ -146,6 +146,26 @@ reset() {
   q_amplitudes.clear();
   q_amplitudes[0] = std::complex<double>(1, 0);
 }
+
+class frozen {
+ public:
+  explicit frozen(amplitudes_t const& q_amp) : q_amp(q_amp) {
+  }
+  amplitudes_t const& get() const {
+    return q_amp;
+  }
+ private:
+  amplitudes_t q_amp;
+};
+
+frozen_ptr backup() {
+  return boost::make_shared<frozen>(q_amplitudes);
+}
+void restore(frozen_ptr const& frozenptr) {
+  q_amplitudes = frozenptr->get();
+}
+
+  
 // ----------------------------------------------------------------------
 
 /**

@@ -2,6 +2,7 @@
 // Copyright [2019] tadashi9e
 #include "qc.h"
 #include <sys/time.h>
+#include <algorithm>
 #include <iostream>
 #include <map>
 #include <vector>
@@ -126,9 +127,14 @@ static double amplitude(std::complex<double> const& q_amp) {
     std::cout << qbit.str() << std::endl;
   }
   std::cout << "-- states --" << std::endl;
+  std::vector<size_t> bases;
+  bases.reserve(q_amplitudes.size());
   BOOST_FOREACH(amplitudes_t::value_type const& v, q_amplitudes) {
-    size_t basis(v.first);
-    std::complex<double> const& q_amp(v.second);
+    bases.push_back(v.first);
+  }
+  std::sort(bases.begin(), bases.end());
+  BOOST_FOREACH(size_t basis, bases) {
+    std::complex<double> const& q_amp(q_amplitudes[basis]);
     std::cout << bitset_of(basis, 1 << qbits.size())
               << ": |"
               << q_amp
@@ -302,51 +308,55 @@ tensor_product(boost::function<std::complex<double>(size_t, size_t)> op1,
 /**
  * CNOT ゲート
  */
-static std::complex<double> op_cx(size_t j1, size_t i1,
-                                  size_t j2, size_t i2) {
-  return (tensor_product(&op_downside, j1, i1, &op_unit,    j2, i2) +
-          tensor_product(&op_upside,   j1, i1, &op_pauli_x, j2, i2));
+static std::complex<double> op_cx(size_t control_j, size_t control_i,
+                                  size_t target_j, size_t target_i) {
+  return (tensor_product(&op_downside, control_j, control_i,
+                         &op_unit,     target_j,  target_i) +
+          tensor_product(&op_upside,   control_j, control_i,
+                         &op_pauli_x,  target_j,  target_i));
 }
-static std::complex<double> op_cz(size_t j1, size_t i1,
-                                  size_t j2, size_t i2) {
-  return (tensor_product(&op_downside, j1, i1, &op_unit,    j2, i2) +
-          tensor_product(&op_upside,   j1, i1, &op_pauli_z, j2, i2));
+static std::complex<double> op_cz(size_t control_j, size_t control_i,
+                                  size_t target_j, size_t target_i) {
+  return (tensor_product(&op_downside, control_j, control_i,
+                         &op_unit,     target_j,   target_i) +
+          tensor_product(&op_upside,   control_j,  control_i,
+                         &op_pauli_z,  target_j,   target_i));
 }
 
 /**
  * Toffoli ゲート
  */
-static std::complex<double> op_ccx(size_t j1, size_t i1,
-                                   size_t j2, size_t i2,
-                                   size_t j3, size_t i3) {
-  return (tensor_product(&op_downside, j1, i1,
-                         &op_downside, j2, i2,
-                         &op_unit,     j3, i3) +
-          tensor_product(&op_upside,   j1, i1,
-                         &op_downside, j2, i2,
-                         &op_unit,     j3, i3) +
-          tensor_product(&op_downside, j1, i1,
-                         &op_upside,   j2, i2,
-                         &op_unit,     j3, i3) +
-          tensor_product(&op_upside,   j1, i1,
-                         &op_upside,   j2, i2,
-                         &op_pauli_x,  j3, i3));
+static std::complex<double> op_ccx(size_t control1_j, size_t control1_i,
+                                   size_t control2_j, size_t control2_i,
+                                   size_t target_j, size_t target_i) {
+  return (tensor_product(&op_downside, control1_j, control1_i,
+                         &op_downside, control2_j, control2_i,
+                         &op_unit,     target_j,   target_i) +
+          tensor_product(&op_upside,   control1_j, control1_i,
+                         &op_downside, control2_j, control2_i,
+                         &op_unit,     target_j,   target_i) +
+          tensor_product(&op_downside, control1_j, control1_i,
+                         &op_upside,   control2_j, control2_i,
+                         &op_unit,     target_j,   target_i) +
+          tensor_product(&op_upside,   control1_j, control1_i,
+                         &op_upside,   control2_j, control2_i,
+                         &op_pauli_x,  target_j,   target_i));
 }
-static std::complex<double> op_ccz(size_t j1, size_t i1,
-                                   size_t j2, size_t i2,
-                                   size_t j3, size_t i3) {
-  return (tensor_product(&op_downside, j1, i1,
-                         &op_downside, j2, i2,
-                         &op_unit,     j3, i3) +
-          tensor_product(&op_upside,   j1, i1,
-                         &op_downside, j2, i2,
-                         &op_unit,     j3, i3) +
-          tensor_product(&op_downside, j1, i1,
-                         &op_upside,   j2, i2,
-                         &op_unit,     j3, i3) +
-          tensor_product(&op_upside,   j1, i1,
-                         &op_upside,   j2, i2,
-                         &op_pauli_z,  j3, i3));
+static std::complex<double> op_ccz(size_t control1_j, size_t control1_i,
+                                   size_t control2_j, size_t control2_i,
+                                   size_t target_j, size_t target_i) {
+  return (tensor_product(&op_downside, control1_j, control1_i,
+                         &op_downside, control2_j, control2_i,
+                         &op_unit,     target_j,   target_i) +
+          tensor_product(&op_upside,   control1_j, control1_i,
+                         &op_downside, control2_j, control2_i,
+                         &op_unit,     target_j,   target_i) +
+          tensor_product(&op_downside, control1_j, control1_i,
+                         &op_upside,   control2_j, control2_i,
+                         &op_unit,     target_j,   target_i) +
+          tensor_product(&op_upside,   control1_j, control1_i,
+                         &op_upside,   control2_j, control2_i,
+                         &op_pauli_z,  target_j,   target_i));
 }
 
 static amplitudes_t
@@ -510,6 +520,21 @@ void
 hadamard(qbit const& q) {
   int const id(q.get_id());
   q_amplitudes = apply_tensor_product(op_hadamard, id, q_amplitudes);
+}
+void
+hadamard_for_all() {
+  if (q_amplitudes.size() == 1 &&
+      q_amplitudes[0] == std::complex<double>(1, 0)) {
+    size_t const total_basis(static_cast<size_t>(0x01) << qbits.size());
+    double const average = 1.0 / sqrt(static_cast<double>(total_basis));
+    for (size_t basis = 0; basis < total_basis; ++basis) {
+      q_amplitudes[basis] = average;
+    }
+  } else {
+    for (int id = 0; id < static_cast<int>(qbits.size()); ++id) {
+      q_amplitudes = apply_tensor_product(op_hadamard, id, q_amplitudes);
+    }
+  }
 }
 void
 cphase(qbit const& q, std::complex<double> const& phase) {

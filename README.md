@@ -4,7 +4,7 @@
 
 - qc.h  ヘッダファイル
 - qc.cc ソースファイル
-- test_teleport.cc テストプログラム
+- test_*.cc テストプログラム
 
 前提
 ====
@@ -49,6 +49,12 @@ void qc::hadamard(qbit const& q);
 ```
 
 量子変数 q にアダマール変換を行う。
+
+```c++
+void qc::hadamard_for_all();
+```
+
+その時点で宣言されているすべての量子変数についてアダマールゲートを適用する。
 
 #### パウリ X ゲート
 

@@ -47,6 +47,7 @@ extern void restore(frozen_ptr const& frozenptr);
 extern double measure(qbit const& q, bool is_up);
 extern bool measure(qbit const& q);
 extern void hadamard(qbit const& q);
+extern void hadamard_for_all();
 extern void pauli_x(qbit const& q);
 extern void pauli_y(qbit const& q);
 extern void pauli_z(qbit const& q);

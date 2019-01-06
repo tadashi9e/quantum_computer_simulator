@@ -110,15 +110,14 @@ main(int argc, char* argv[]) {
   int const nloop(atoi(argv[2]));
   std::vector<qc::qbit> a;
   std::vector<qc::qbit> b;
-  std::vector<qc::qbit> t;
-  std::vector<qc::qbit> s;
+  qc::reset();
   a.resize(nbits);
   b.resize(nbits);
+  qc::hadamard_for_all();
+  std::vector<qc::qbit> t;
+  std::vector<qc::qbit> s;
   t.resize(nbits);
   s.resize(nbits + 1);
-  qc::reset();
-  hadamard(a);
-  hadamard(b);
   // a + b = c を計算する
   // qc::dump("add start");
   q_add(a, b, s, t);

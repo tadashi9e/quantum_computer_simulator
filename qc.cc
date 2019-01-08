@@ -4,7 +4,7 @@
 #include <sys/time.h>
 #include <algorithm>
 #include <iostream>
-#include <map>
+#include <unordered_map>
 #include <vector>
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
@@ -31,7 +31,8 @@ class Random01 {
 
 Random01 random01;
 
-typedef std::map<size_t, std::complex<double> > amplitudes_t;
+typedef std::unordered_map<size_t, std::complex<double> > amplitudes_t;
+
 /**
  * 右から順に出現順に量子変数を並べたときの
  * |000...000> から |111...111> までの確率振幅。
@@ -362,8 +363,9 @@ static std::complex<double> op_ccz(size_t control1_j, size_t control1_i,
 static amplitudes_t
 apply_tensor_product(boost::function<std::complex<double>(size_t, size_t)> op,
                      int id,
-                     amplitudes_t amplitudes) {
+                     amplitudes_t const& amplitudes) {
   amplitudes_t amplitudes2;
+  amplitudes2.reserve(amplitudes.size());
   size_t imask(~(static_cast<size_t>(0x01) << id));
   BOOST_FOREACH(amplitudes_t::value_type const& v, amplitudes) {
     size_t const basis(v.first);
@@ -385,8 +387,9 @@ static amplitudes_t
 apply_tensor_product(boost::function<std::complex<double>(size_t, size_t,
                                                           size_t, size_t)> op2,
                      int id1, int id2,
-                     amplitudes_t amplitudes) {
+                     amplitudes_t const& amplitudes) {
   amplitudes_t amplitudes2;
+  amplitudes2.reserve(amplitudes.size());
   size_t imask(~((static_cast<size_t>(0x01) << id1) |
                  (static_cast<size_t>(0x01) << id2)));
   BOOST_FOREACH(amplitudes_t::value_type const& v, amplitudes) {
@@ -413,8 +416,9 @@ apply_tensor_product(boost::function<std::complex<double>(size_t, size_t,
                                                           size_t, size_t,
                                                           size_t, size_t)> op3,
                      int id1, int id2, int id3,
-                     amplitudes_t amplitudes) {
+                     amplitudes_t const& amplitudes) {
   amplitudes_t amplitudes2;
+  amplitudes2.reserve(amplitudes.size());
   size_t imask(~((static_cast<size_t>(0x01) << id1) |
                  (static_cast<size_t>(0x01) << id2) |
                  (static_cast<size_t>(0x01) << id3)));
@@ -527,6 +531,7 @@ hadamard_for_all() {
       q_amplitudes[0] == std::complex<double>(1, 0)) {
     size_t const total_basis(static_cast<size_t>(0x01) << qbits.size());
     double const average = 1.0 / sqrt(static_cast<double>(total_basis));
+    q_amplitudes.reserve(total_basis);
     for (size_t basis = 0; basis < total_basis; ++basis) {
       q_amplitudes[basis] = average;
     }

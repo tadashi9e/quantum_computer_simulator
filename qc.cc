@@ -4,26 +4,22 @@
 #include <sys/time.h>
 #include <algorithm>
 #include <iostream>
+#include <string>
 #include <unordered_map>
 #include <vector>
-#include <boost/bind.hpp>
-#include <boost/function.hpp>
-#include <boost/foreach.hpp>
-#include <boost/make_shared.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/random.hpp>
-#include <boost/random/random_device.hpp>
+#include <functional>
+#include <random>
 
 namespace qc {
 
 class Random01 {
-  boost::random::random_device rnd_dev;
-  boost::random::mt19937 rnd_gen;
+  std::random_device rnd_dev;
+  std::mt19937 rnd_gen;
  public:
   Random01() : rnd_gen(rnd_dev()) {
   }
   double get_random() {
-    boost::random::uniform_01<double> rnd01;
+    std::uniform_real_distribution<> rnd01(0.0, 1.0);
     double rnd = rnd01(rnd_gen);
     return rnd;
   }
@@ -69,13 +65,13 @@ struct qbit::q_impl {
 };
 
 qbit::qbit()
-  : impl(boost::make_shared<q_impl>()) {
+  : impl(std::make_shared<q_impl>()) {
   impl->setup();
   qbits.push_back(*this);
 }
 
 qbit::qbit(std::string const& name)
-  : impl(boost::make_shared<q_impl>()) {
+  : impl(std::make_shared<q_impl>()) {
   impl->setup();
   impl->set_name(name);
   qbits.push_back(*this);
@@ -97,7 +93,7 @@ int qbit::get_id() const {
 }
 
 std::string qbit::str() const {
-  return std::string("[") + boost::lexical_cast<std::string>(impl->id)
+  return std::string("[") + std::to_string(impl->id)
     + "]" + impl->name;
 }
 
@@ -124,17 +120,17 @@ static double amplitude(std::complex<double> const& q_amp) {
   void dump(std::string const& title) {
   std::cout << "===== " << title << " =====" << std::endl;
   std::cout << "-- qbits --" << std::endl;
-  BOOST_FOREACH(qbit& qbit, qbits) {
+  for(qbit& qbit : qbits) {
     std::cout << qbit.str() << std::endl;
   }
   std::cout << "-- states --" << std::endl;
   std::vector<size_t> bases;
   bases.reserve(q_amplitudes.size());
-  BOOST_FOREACH(amplitudes_t::value_type const& v, q_amplitudes) {
+  for(amplitudes_t::value_type const& v : q_amplitudes) {
     bases.push_back(v.first);
   }
   std::sort(bases.begin(), bases.end());
-  BOOST_FOREACH(size_t basis, bases) {
+  for(size_t basis : bases) {
     std::complex<double> const& q_amp(q_amplitudes[basis]);
     std::cout << bitset_of(basis, 1 << qbits.size())
               << ": |"
@@ -166,7 +162,7 @@ class frozen {
 };
 
 frozen_ptr backup() {
-  return boost::make_shared<frozen>(q_amplitudes);
+  return std::make_shared<frozen>(q_amplitudes);
 }
 void restore(frozen_ptr const& frozenptr) {
   q_amplitudes = frozenptr->get();
@@ -192,8 +188,6 @@ static std::complex<double> op_unit(size_t j, size_t i) {
  * \     /
  */
 static std::complex<double> op_hadamard(size_t j, size_t i) {
-  assert(i < 2);
-  assert(j < 2);
   return ((i == 0 || j == 0)
           ? std::complex<double>(1, 0)
           : std::complex<double>(-1, 0)) / sqrt(2.0);
@@ -207,8 +201,6 @@ static std::complex<double> op_hadamard(size_t j, size_t i) {
  */
 static std::complex<double>
 op_cphase(std::complex<double> const& phase, size_t j, size_t i) {
-  assert(i < 2);
-  assert(j < 2);
   if (j == 0 && i == 0) {
     return std::complex<double>(1, 0);
   }
@@ -225,8 +217,6 @@ op_cphase(std::complex<double> const& phase, size_t j, size_t i) {
  * \    /
  */
 static std::complex<double> op_pauli_x(size_t j, size_t i) {
-  assert(i < 2);
-  assert(j < 2);
   return (i != j) ? std::complex<double>(1, 0) : std::complex<double>();
 }
 
@@ -237,8 +227,6 @@ static std::complex<double> op_pauli_x(size_t j, size_t i) {
  * \     /
  */
 static std::complex<double> op_pauli_y(size_t j, size_t i) {
-  assert(i < 2);
-  assert(j < 2);
   if (i == j) {
     return std::complex<double>();
   }
@@ -256,8 +244,6 @@ static std::complex<double> op_pauli_y(size_t j, size_t i) {
  * \     /
  */
 static std::complex<double> op_pauli_z(size_t j, size_t i) {
-  assert(i < 2);
-  assert(j < 2);
   if (i != j) {
     return std::complex<double>();
   }
@@ -284,9 +270,9 @@ static std::complex<double> op_upside(size_t j, size_t i) {
  * 二演算子のテンソル積
  */
 static std::complex<double>
-tensor_product(boost::function<std::complex<double>(size_t, size_t)> op1,
+tensor_product(std::function<std::complex<double>(size_t, size_t)> op1,
                size_t j1, size_t i1,
-               boost::function<std::complex<double>(size_t, size_t)> op2,
+               std::function<std::complex<double>(size_t, size_t)> op2,
                size_t j2, size_t i2) {
   return op1(j1, i1) * op2(j2, i2);
 }
@@ -295,11 +281,11 @@ tensor_product(boost::function<std::complex<double>(size_t, size_t)> op1,
  * 三演算子のテンソル積
  */
 static std::complex<double>
-tensor_product(boost::function<std::complex<double>(size_t, size_t)> op1,
+tensor_product(std::function<std::complex<double>(size_t, size_t)> op1,
                size_t j1, size_t i1,
-               boost::function<std::complex<double>(size_t, size_t)> op2,
+               std::function<std::complex<double>(size_t, size_t)> op2,
                size_t j2, size_t i2,
-               boost::function<std::complex<double>(size_t, size_t)> op3,
+               std::function<std::complex<double>(size_t, size_t)> op3,
                size_t j3, size_t i3) {
   return (op1(j1, i1) *
           op2(j2, i2) *
@@ -361,13 +347,13 @@ static std::complex<double> op_ccz(size_t control1_j, size_t control1_i,
 }
 
 static amplitudes_t
-apply_tensor_product(boost::function<std::complex<double>(size_t, size_t)> op,
+apply_tensor_product(std::function<std::complex<double>(size_t, size_t)> op,
                      int id,
                      amplitudes_t const& amplitudes) {
   amplitudes_t amplitudes2;
   amplitudes2.reserve(amplitudes.size());
   size_t imask(~(static_cast<size_t>(0x01) << id));
-  BOOST_FOREACH(amplitudes_t::value_type const& v, amplitudes) {
+  for(amplitudes_t::value_type const& v : amplitudes) {
     size_t const basis(v.first);
     std::complex<double> const& amplitude(v.second);
     size_t i((basis >> id) & 0x01);
@@ -384,7 +370,7 @@ apply_tensor_product(boost::function<std::complex<double>(size_t, size_t)> op,
 }
 
 static amplitudes_t
-apply_tensor_product(boost::function<std::complex<double>(size_t, size_t,
+apply_tensor_product(std::function<std::complex<double>(size_t, size_t,
                                                           size_t, size_t)> op2,
                      int id1, int id2,
                      amplitudes_t const& amplitudes) {
@@ -392,7 +378,7 @@ apply_tensor_product(boost::function<std::complex<double>(size_t, size_t,
   amplitudes2.reserve(amplitudes.size());
   size_t imask(~((static_cast<size_t>(0x01) << id1) |
                  (static_cast<size_t>(0x01) << id2)));
-  BOOST_FOREACH(amplitudes_t::value_type const& v, amplitudes) {
+  for(amplitudes_t::value_type const& v : amplitudes) {
     size_t const basis(v.first);
     std::complex<double> const& amplitude(v.second);
     size_t const i1((basis >> id1) & 0x01);
@@ -412,7 +398,7 @@ apply_tensor_product(boost::function<std::complex<double>(size_t, size_t,
 }
 
 static amplitudes_t
-apply_tensor_product(boost::function<std::complex<double>(size_t, size_t,
+apply_tensor_product(std::function<std::complex<double>(size_t, size_t,
                                                           size_t, size_t,
                                                           size_t, size_t)> op3,
                      int id1, int id2, int id3,
@@ -422,7 +408,7 @@ apply_tensor_product(boost::function<std::complex<double>(size_t, size_t,
   size_t imask(~((static_cast<size_t>(0x01) << id1) |
                  (static_cast<size_t>(0x01) << id2) |
                  (static_cast<size_t>(0x01) << id3)));
-  BOOST_FOREACH(amplitudes_t::value_type const& v, amplitudes) {
+  for(amplitudes_t::value_type const& v : amplitudes) {
     size_t basis(v.first);
     std::complex<double> const& amplitude(v.second);
     size_t const i1((basis >> id1) & 0x01);
@@ -449,7 +435,7 @@ static double
 op_measure(int id, bool is_up) {
   double p = 0;
   size_t mask = static_cast<size_t>(0x01) << id;
-  BOOST_FOREACH(amplitudes_t::value_type const& v, q_amplitudes) {
+  for(amplitudes_t::value_type const& v : q_amplitudes) {
     size_t const basis(v.first);
     std::complex<double> const& q_amp(v.second);
     bool b = ((basis & mask) == 0) ? false : true;
@@ -480,7 +466,7 @@ op_measure(int id) {
   double p0 = 0;
   double p1 = 0;
   size_t mask = static_cast<size_t>(0x01) << id;
-  BOOST_FOREACH(amplitudes_t::value_type const& v, q_amplitudes) {
+  for(amplitudes_t::value_type const& v : q_amplitudes) {
     size_t const basis(v.first);
     std::complex<double> const& q_amp(v.second);
     bool b = ((basis & mask) == 0) ? false : true;
@@ -544,8 +530,8 @@ hadamard_for_all() {
 void
 cphase(qbit const& q, std::complex<double> const& phase) {
   int const id(q.get_id());
-  boost::function<std::complex<double>(size_t, size_t)>
-    op(boost::bind(&op_cphase, phase, _1, _2));
+  std::function<std::complex<double>(size_t, size_t)>
+    op(std::bind(&op_cphase, phase, std::placeholders::_1, std::placeholders::_2));
   q_amplitudes = apply_tensor_product(op, id, q_amplitudes);
 }
 void pauli_x(qbit const& q) {

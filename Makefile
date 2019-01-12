@@ -1,7 +1,7 @@
 #CXX=clang++
 CXX=g++
-CXXFLAGS=-Wall -O3 -std=c++11 -Iboost_system
-LDFLAGS=-lboost_random
+CXXFLAGS=-Wall -O3 -std=c++11
+LDFLAGS=
 
 test: test_teleport test_add test_cluster
 

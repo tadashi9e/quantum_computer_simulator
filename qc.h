@@ -4,8 +4,8 @@
 #define QC_H_
 
 #include <complex>
+#include <memory>
 #include <string>
-#include <boost/shared_ptr.hpp>
 
 namespace qc {
 
@@ -32,14 +32,14 @@ class qbit {
   std::string str() const;
   struct q_impl;
  private:
-  boost::shared_ptr<q_impl> impl;
+  std::shared_ptr<q_impl> impl;
 };
 
 extern void dump(std::string const& title);
 extern void reset();
 
 class frozen;
-typedef boost::shared_ptr<frozen> frozen_ptr;
+typedef std::shared_ptr<frozen> frozen_ptr;
 
 extern frozen_ptr backup();
 extern void restore(frozen_ptr const& frozenptr);

@@ -9,6 +9,8 @@
 
 namespace qc {
 
+typedef std::int16_t qbit_id_t;
+
 /**
  * qbit。
  * 
@@ -28,7 +30,7 @@ class qbit {
   explicit qbit(std::string const& name);
   void set_name(std::string const& name);
   std::string const& get_name();
-  int get_id() const;
+  qbit_id_t get_id() const;
   std::string str() const;
   struct q_impl;
  private:

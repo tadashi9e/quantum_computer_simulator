@@ -26,8 +26,8 @@ class Random01 {
 };
 
 Random01 random01;
-
-typedef std::unordered_map<size_t, std::complex<double> > amplitudes_t;
+typedef std::uint64_t basis_t;
+typedef std::unordered_map<basis_t, std::complex<double> > amplitudes_t;
 
 /**
  * 右から順に出現順に量子変数を並べたときの
@@ -42,14 +42,13 @@ static std::vector<qbit> qbits;
 /**
  * 新たな量子変数に与える番号
  */
-static int
+static qbit_id_t
 new_qbit_id() {
-  int id = qbits.size();
-  return id;
+  return static_cast<qbit_id_t>(qbits.size());
 }
 
 struct qbit::q_impl {
-  int id;
+  qbit_id_t id;
   std::string name;
   q_impl() : id(-1), name() {
   }
@@ -88,7 +87,7 @@ std::string const& qbit::get_name() {
 /**
  * 量子変数の番号を返す。
  */
-int qbit::get_id() const {
+qbit_id_t qbit::get_id() const {
   return impl->id;
 }
 
@@ -97,11 +96,11 @@ std::string qbit::str() const {
     + "]" + impl->name;
 }
 
-static std::string bitset_of(size_t n, size_t max_n) {
+static std::string bitset_of(basis_t n, basis_t max_n) {
   std::string result;
-  size_t pow_i = 1;
-  for (size_t i = 0; ; ++i) {
-    result += (n & ((size_t)1 << i)) ? '1' : '0';
+  basis_t pow_i = 1;
+  for (qbit_id_t i = 0; ; ++i) {
+    result += (n & (static_cast<basis_t>(1) << i)) ? '1' : '0';
     pow_i *= 2;
     if (pow_i >= max_n) {
       break;
@@ -124,15 +123,15 @@ static double amplitude(std::complex<double> const& q_amp) {
     std::cout << qbit.str() << std::endl;
   }
   std::cout << "-- states --" << std::endl;
-  std::vector<size_t> bases;
+  std::vector<basis_t> bases;
   bases.reserve(q_amplitudes.size());
   for(amplitudes_t::value_type const& v : q_amplitudes) {
     bases.push_back(v.first);
   }
   std::sort(bases.begin(), bases.end());
-  for(size_t basis : bases) {
+  for(basis_t basis : bases) {
     std::complex<double> const& q_amp(q_amplitudes[basis]);
-    std::cout << bitset_of(basis, 1 << qbits.size())
+    std::cout << bitset_of(basis, static_cast<basis_t>(1) << qbits.size())
               << ": |"
               << q_amp
               << "| = " << amplitude(q_amp)
@@ -176,7 +175,7 @@ void restore(frozen_ptr const& frozenptr) {
  * | 0 1|
  * \    /
  */
-static std::complex<double> op_unit(size_t j, size_t i) {
+static std::complex<double> op_unit(qbit_id_t j, qbit_id_t i) {
   return (i == j)
     ? std::complex<double>(1, 0) : std::complex<double>();
 }
@@ -187,7 +186,7 @@ static std::complex<double> op_unit(size_t j, size_t i) {
  * | 1 -1|
  * \     /
  */
-static std::complex<double> op_hadamard(size_t j, size_t i) {
+static std::complex<double> op_hadamard(qbit_id_t j, qbit_id_t i) {
   return ((i == 0 || j == 0)
           ? std::complex<double>(1, 0)
           : std::complex<double>(-1, 0)) / sqrt(2.0);
@@ -200,7 +199,7 @@ static std::complex<double> op_hadamard(size_t j, size_t i) {
  * \             /
  */
 static std::complex<double>
-op_cphase(std::complex<double> const& phase, size_t j, size_t i) {
+op_cphase(std::complex<double> const& phase, qbit_id_t j, qbit_id_t i) {
   if (j == 0 && i == 0) {
     return std::complex<double>(1, 0);
   }
@@ -216,7 +215,7 @@ op_cphase(std::complex<double> const& phase, size_t j, size_t i) {
  * | 1 0|
  * \    /
  */
-static std::complex<double> op_pauli_x(size_t j, size_t i) {
+static std::complex<double> op_pauli_x(qbit_id_t j, qbit_id_t i) {
   return (i != j) ? std::complex<double>(1, 0) : std::complex<double>();
 }
 
@@ -226,7 +225,7 @@ static std::complex<double> op_pauli_x(size_t j, size_t i) {
  * | i  0|
  * \     /
  */
-static std::complex<double> op_pauli_y(size_t j, size_t i) {
+static std::complex<double> op_pauli_y(qbit_id_t j, qbit_id_t i) {
   if (i == j) {
     return std::complex<double>();
   }
@@ -243,7 +242,7 @@ static std::complex<double> op_pauli_y(size_t j, size_t i) {
  * | 0 -1|
  * \     /
  */
-static std::complex<double> op_pauli_z(size_t j, size_t i) {
+static std::complex<double> op_pauli_z(qbit_id_t j, qbit_id_t i) {
   if (i != j) {
     return std::complex<double>();
   }
@@ -254,13 +253,13 @@ static std::complex<double> op_pauli_z(size_t j, size_t i) {
   }
 }
 
-static std::complex<double> op_downside(size_t j, size_t i) {
+static std::complex<double> op_downside(qbit_id_t j, qbit_id_t i) {
   return (i == 0 && j == 0)
     ? std::complex<double>(1, 0)
     : std::complex<double>();
 }
 
-static std::complex<double> op_upside(size_t j, size_t i) {
+static std::complex<double> op_upside(qbit_id_t j, qbit_id_t i) {
   return (i == 1 && j == 1)
     ? std::complex<double>(1, 0)
     : std::complex<double>();
@@ -270,10 +269,10 @@ static std::complex<double> op_upside(size_t j, size_t i) {
  * 二演算子のテンソル積
  */
 static std::complex<double>
-tensor_product(std::function<std::complex<double>(size_t, size_t)> op1,
-               size_t j1, size_t i1,
-               std::function<std::complex<double>(size_t, size_t)> op2,
-               size_t j2, size_t i2) {
+tensor_product(std::function<std::complex<double>(qbit_id_t, qbit_id_t)> op1,
+               qbit_id_t j1, qbit_id_t i1,
+               std::function<std::complex<double>(qbit_id_t, qbit_id_t)> op2,
+               qbit_id_t j2, qbit_id_t i2) {
   return op1(j1, i1) * op2(j2, i2);
 }
 
@@ -281,12 +280,12 @@ tensor_product(std::function<std::complex<double>(size_t, size_t)> op1,
  * 三演算子のテンソル積
  */
 static std::complex<double>
-tensor_product(std::function<std::complex<double>(size_t, size_t)> op1,
-               size_t j1, size_t i1,
-               std::function<std::complex<double>(size_t, size_t)> op2,
-               size_t j2, size_t i2,
-               std::function<std::complex<double>(size_t, size_t)> op3,
-               size_t j3, size_t i3) {
+tensor_product(std::function<std::complex<double>(qbit_id_t, qbit_id_t)> op1,
+               qbit_id_t j1, qbit_id_t i1,
+               std::function<std::complex<double>(qbit_id_t, qbit_id_t)> op2,
+               qbit_id_t j2, qbit_id_t i2,
+               std::function<std::complex<double>(qbit_id_t, qbit_id_t)> op3,
+               qbit_id_t j3, qbit_id_t i3) {
   return (op1(j1, i1) *
           op2(j2, i2) *
           op3(j3, i3));
@@ -295,15 +294,15 @@ tensor_product(std::function<std::complex<double>(size_t, size_t)> op1,
 /**
  * CNOT ゲート
  */
-static std::complex<double> op_cx(size_t control_j, size_t control_i,
-                                  size_t target_j, size_t target_i) {
+static std::complex<double> op_cx(qbit_id_t control_j, qbit_id_t control_i,
+                                  qbit_id_t target_j, qbit_id_t target_i) {
   return (tensor_product(&op_downside, control_j, control_i,
                          &op_unit,     target_j,  target_i) +
           tensor_product(&op_upside,   control_j, control_i,
                          &op_pauli_x,  target_j,  target_i));
 }
-static std::complex<double> op_cz(size_t control_j, size_t control_i,
-                                  size_t target_j, size_t target_i) {
+static std::complex<double> op_cz(qbit_id_t control_j, qbit_id_t control_i,
+                                  qbit_id_t target_j, qbit_id_t target_i) {
   return (tensor_product(&op_downside, control_j, control_i,
                          &op_unit,     target_j,   target_i) +
           tensor_product(&op_upside,   control_j,  control_i,
@@ -313,9 +312,9 @@ static std::complex<double> op_cz(size_t control_j, size_t control_i,
 /**
  * Toffoli ゲート
  */
-static std::complex<double> op_ccx(size_t control1_j, size_t control1_i,
-                                   size_t control2_j, size_t control2_i,
-                                   size_t target_j, size_t target_i) {
+static std::complex<double> op_ccx(qbit_id_t control1_j, qbit_id_t control1_i,
+                                   qbit_id_t control2_j, qbit_id_t control2_i,
+                                   qbit_id_t target_j, qbit_id_t target_i) {
   return (tensor_product(&op_downside, control1_j, control1_i,
                          &op_downside, control2_j, control2_i,
                          &op_unit,     target_j,   target_i) +
@@ -329,9 +328,9 @@ static std::complex<double> op_ccx(size_t control1_j, size_t control1_i,
                          &op_upside,   control2_j, control2_i,
                          &op_pauli_x,  target_j,   target_i));
 }
-static std::complex<double> op_ccz(size_t control1_j, size_t control1_i,
-                                   size_t control2_j, size_t control2_i,
-                                   size_t target_j, size_t target_i) {
+static std::complex<double> op_ccz(qbit_id_t control1_j, qbit_id_t control1_i,
+                                   qbit_id_t control2_j, qbit_id_t control2_i,
+                                   qbit_id_t target_j, qbit_id_t target_i) {
   return (tensor_product(&op_downside, control1_j, control1_i,
                          &op_downside, control2_j, control2_i,
                          &op_unit,     target_j,   target_i) +
@@ -347,18 +346,18 @@ static std::complex<double> op_ccz(size_t control1_j, size_t control1_i,
 }
 
 static amplitudes_t
-apply_tensor_product(std::function<std::complex<double>(size_t, size_t)> op,
-                     int id,
+apply_tensor_product(std::function<std::complex<double>(qbit_id_t, qbit_id_t)> op,
+                     qbit_id_t id,
                      amplitudes_t const& amplitudes) {
   amplitudes_t amplitudes2;
   amplitudes2.reserve(amplitudes.size());
-  size_t imask(~(static_cast<size_t>(0x01) << id));
+  basis_t imask(~(static_cast<basis_t>(0x01) << id));
   for(amplitudes_t::value_type const& v : amplitudes) {
-    size_t const basis(v.first);
+    basis_t const basis(v.first);
     std::complex<double> const& amplitude(v.second);
-    size_t i((basis >> id) & 0x01);
-    for (size_t j = 0; j < 2; ++j) {
-      size_t const target_id((basis & imask) | (j << id));
+    qbit_id_t i((basis >> id) & 0x01);
+    for (qbit_id_t j = 0; j < 2; ++j) {
+      basis_t const target_id((basis & imask) | (static_cast<basis_t>(j) << id));
       std::complex<double> w(op(j, i));
       if (w == std::complex<double>()) {
         continue;
@@ -370,26 +369,28 @@ apply_tensor_product(std::function<std::complex<double>(size_t, size_t)> op,
 }
 
 static amplitudes_t
-apply_tensor_product(std::function<std::complex<double>(size_t, size_t,
-                                                          size_t, size_t)> op2,
-                     int id1, int id2,
+apply_tensor_product(std::function<std::complex<double>(qbit_id_t, qbit_id_t,
+                                                        qbit_id_t, qbit_id_t)> op2,
+                     qbit_id_t id1, qbit_id_t id2,
                      amplitudes_t const& amplitudes) {
   amplitudes_t amplitudes2;
   amplitudes2.reserve(amplitudes.size());
-  size_t imask(~((static_cast<size_t>(0x01) << id1) |
-                 (static_cast<size_t>(0x01) << id2)));
+  basis_t imask(~((static_cast<basis_t>(0x01) << id1) |
+                  (static_cast<basis_t>(0x01) << id2)));
   for(amplitudes_t::value_type const& v : amplitudes) {
-    size_t const basis(v.first);
+    basis_t const basis(v.first);
     std::complex<double> const& amplitude(v.second);
-    size_t const i1((basis >> id1) & 0x01);
-    size_t const i2((basis >> id2) & 0x01);
-    for (size_t j2 = 0; j2 < 2; ++j2) {
-      for (size_t j1 = 0; j1 < 2; ++j1) {
+    qbit_id_t const i1((basis >> id1) & 0x01);
+    qbit_id_t const i2((basis >> id2) & 0x01);
+    for (qbit_id_t j2 = 0; j2 < 2; ++j2) {
+      for (qbit_id_t j1 = 0; j1 < 2; ++j1) {
         std::complex<double> w(op2(j1, i1, j2, i2));
         if (w == std::complex<double>()) {
           continue;
         }
-        size_t const target_id((basis & imask) | (j1 << id1) | (j2 << id2));
+        basis_t const target_id((basis & imask) |
+                                (static_cast<basis_t>(j1) << id1) |
+                                (static_cast<basis_t>(j2) << id2));
         amplitudes2[target_id] += w * amplitude;
       }
     }
@@ -398,31 +399,33 @@ apply_tensor_product(std::function<std::complex<double>(size_t, size_t,
 }
 
 static amplitudes_t
-apply_tensor_product(std::function<std::complex<double>(size_t, size_t,
-                                                          size_t, size_t,
-                                                          size_t, size_t)> op3,
-                     int id1, int id2, int id3,
+apply_tensor_product(std::function<std::complex<double>(qbit_id_t, qbit_id_t,
+                                                        qbit_id_t, qbit_id_t,
+                                                        qbit_id_t, qbit_id_t)> op3,
+                     qbit_id_t id1, qbit_id_t id2, qbit_id_t id3,
                      amplitudes_t const& amplitudes) {
   amplitudes_t amplitudes2;
   amplitudes2.reserve(amplitudes.size());
-  size_t imask(~((static_cast<size_t>(0x01) << id1) |
-                 (static_cast<size_t>(0x01) << id2) |
-                 (static_cast<size_t>(0x01) << id3)));
+  basis_t imask(~((static_cast<basis_t>(0x01) << id1) |
+                  (static_cast<basis_t>(0x01) << id2) |
+                  (static_cast<basis_t>(0x01) << id3)));
   for(amplitudes_t::value_type const& v : amplitudes) {
-    size_t basis(v.first);
+    basis_t basis(v.first);
     std::complex<double> const& amplitude(v.second);
-    size_t const i1((basis >> id1) & 0x01);
-    size_t const i2((basis >> id2) & 0x01);
-    size_t const i3((basis >> id3) & 0x01);
-    for (size_t j3 = 0; j3 < 2; ++j3) {
-      for (size_t j2 = 0; j2 < 2; ++j2) {
-        for (size_t j1 = 0; j1 < 2; ++j1) {
+    qbit_id_t const i1((basis >> id1) & 0x01);
+    qbit_id_t const i2((basis >> id2) & 0x01);
+    qbit_id_t const i3((basis >> id3) & 0x01);
+    for (qbit_id_t j3 = 0; j3 < 2; ++j3) {
+      for (qbit_id_t j2 = 0; j2 < 2; ++j2) {
+        for (qbit_id_t j1 = 0; j1 < 2; ++j1) {
           std::complex<double> w(op3(j1, i1, j2, i2, j3, i3));
           if (w == std::complex<double>()) {
             continue;
           }
-          size_t const target_id((basis & imask) |
-                                 (j1 << id1) | (j2 << id2) | (j3 << id3));
+          basis_t const target_id((basis & imask) |
+                                  (static_cast<basis_t>(j1) << id1) |
+                                  (static_cast<basis_t>(j2) << id2) |
+                                  (static_cast<basis_t>(j3) << id3));
           amplitudes2[target_id] += w * amplitude;
         }
       }
@@ -432,11 +435,11 @@ apply_tensor_product(std::function<std::complex<double>(size_t, size_t,
 }
 
 static double
-op_measure(int id, bool is_up) {
+op_measure(qbit_id_t id, bool is_up) {
   double p = 0;
-  size_t mask = static_cast<size_t>(0x01) << id;
+  basis_t mask = static_cast<basis_t>(0x01) << id;
   for(amplitudes_t::value_type const& v : q_amplitudes) {
-    size_t const basis(v.first);
+    basis_t const basis(v.first);
     std::complex<double> const& q_amp(v.second);
     bool b = ((basis & mask) == 0) ? false : true;
     if (b == is_up) {
@@ -447,7 +450,7 @@ op_measure(int id, bool is_up) {
     double w = 1.0 / sqrt(p);
     for (amplitudes_t::iterator iter = q_amplitudes.begin();
         iter != q_amplitudes.end();) {
-      size_t const basis(iter->first);
+      basis_t const basis(iter->first);
       std::complex<double>& q_amp(iter->second);
       bool b = ((basis & mask) == 0) ? false : true;
       if (b != is_up) {
@@ -462,12 +465,12 @@ op_measure(int id, bool is_up) {
 }
 
 static bool
-op_measure(int id) {
+op_measure(qbit_id_t id) {
   double p0 = 0;
   double p1 = 0;
-  size_t mask = static_cast<size_t>(0x01) << id;
+  basis_t mask = static_cast<basis_t>(0x01) << id;
   for(amplitudes_t::value_type const& v : q_amplitudes) {
-    size_t const basis(v.first);
+    basis_t const basis(v.first);
     std::complex<double> const& q_amp(v.second);
     bool b = ((basis & mask) == 0) ? false : true;
     if (b) {
@@ -481,7 +484,7 @@ op_measure(int id) {
   double w = 1.0 / sqrt(p);
   for (amplitudes_t::iterator iter = q_amplitudes.begin();
       iter != q_amplitudes.end();) {
-    size_t const basis(iter->first);
+    basis_t const basis(iter->first);
     std::complex<double>& q_amp(iter->second);
     bool b = ((basis & mask) == 0) ? false : true;
     if (b != is_up) {
@@ -496,74 +499,74 @@ op_measure(int id) {
 
 double
 measure(qbit const& q, bool is_up) {
-  int const id(q.get_id());
+  qbit_id_t const id(q.get_id());
   return op_measure(id, is_up);
 }
 
 bool
 measure(qbit const& q) {
-  int const id(q.get_id());
+  qbit_id_t const id(q.get_id());
   return op_measure(id);
 }
 
 void
 hadamard(qbit const& q) {
-  int const id(q.get_id());
+  qbit_id_t const id(q.get_id());
   q_amplitudes = apply_tensor_product(op_hadamard, id, q_amplitudes);
 }
 void
 hadamard_for_all() {
   if (q_amplitudes.size() == 1 &&
       q_amplitudes[0] == std::complex<double>(1, 0)) {
-    size_t const total_basis(static_cast<size_t>(0x01) << qbits.size());
+    basis_t const total_basis(static_cast<basis_t>(0x01) << qbits.size());
     double const average = 1.0 / sqrt(static_cast<double>(total_basis));
     q_amplitudes.reserve(total_basis);
-    for (size_t basis = 0; basis < total_basis; ++basis) {
+    for (basis_t basis = 0; basis < total_basis; ++basis) {
       q_amplitudes[basis] = average;
     }
   } else {
-    for (int id = 0; id < static_cast<int>(qbits.size()); ++id) {
+    for (qbit_id_t id = 0; id < static_cast<qbit_id_t>(qbits.size()); ++id) {
       q_amplitudes = apply_tensor_product(op_hadamard, id, q_amplitudes);
     }
   }
 }
 void
 cphase(qbit const& q, std::complex<double> const& phase) {
-  int const id(q.get_id());
-  std::function<std::complex<double>(size_t, size_t)>
+  qbit_id_t const id(q.get_id());
+  std::function<std::complex<double>(qbit_id_t, qbit_id_t)>
     op(std::bind(&op_cphase, phase, std::placeholders::_1, std::placeholders::_2));
   q_amplitudes = apply_tensor_product(op, id, q_amplitudes);
 }
 void pauli_x(qbit const& q) {
-  int const id(q.get_id());
+  qbit_id_t const id(q.get_id());
   q_amplitudes = apply_tensor_product(op_pauli_x, id, q_amplitudes);
 }
 void pauli_y(qbit const& q) {
-  int const id(q.get_id());
+  qbit_id_t const id(q.get_id());
   q_amplitudes = apply_tensor_product(op_pauli_y, id, q_amplitudes);
 }
 void pauli_z(qbit const& q) {
-  int const id(q.get_id());
+  qbit_id_t const id(q.get_id());
   q_amplitudes = apply_tensor_product(op_pauli_z, id, q_amplitudes);
 }
 void cx(qbit const& control_q, qbit const& target_q) {
-  int const control_id(control_q.get_id());
-  int const target_id(target_q.get_id());
+  qbit_id_t const control_id(control_q.get_id());
+  qbit_id_t const target_id(target_q.get_id());
   q_amplitudes = apply_tensor_product(op_cx, control_id, target_id,
                                       q_amplitudes);
 }
 void cz(qbit const& control_q, qbit const& target_q) {
-  int const control_id(control_q.get_id());
-  int const target_id(target_q.get_id());
+  qbit_id_t const control_id(control_q.get_id());
+  qbit_id_t const target_id(target_q.get_id());
   q_amplitudes = apply_tensor_product(op_cz, control_id, target_id,
                                       q_amplitudes);
 }
 void ccx(qbit const& control1_q,
          qbit const& control2_q,
          qbit const& target_q) {
-  int const control1_id(control1_q.get_id());
-  int const control2_id(control2_q.get_id());
-  int const target_id(target_q.get_id());
+  qbit_id_t const control1_id(control1_q.get_id());
+  qbit_id_t const control2_id(control2_q.get_id());
+  qbit_id_t const target_id(target_q.get_id());
   q_amplitudes = apply_tensor_product(op_ccx, control1_id, control2_id,
                                       target_id,
                                       q_amplitudes);
@@ -571,9 +574,9 @@ void ccx(qbit const& control1_q,
 void ccz(qbit const& control1_q,
          qbit const& control2_q,
          qbit const& target_q) {
-  int const control1_id(control1_q.get_id());
-  int const control2_id(control2_q.get_id());
-  int const target_id(target_q.get_id());
+  qbit_id_t const control1_id(control1_q.get_id());
+  qbit_id_t const control2_id(control2_q.get_id());
+  qbit_id_t const target_id(target_q.get_id());
   q_amplitudes = apply_tensor_product(op_ccz, control1_id, control2_id,
                                       target_id,
                                       q_amplitudes);

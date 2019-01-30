@@ -62,16 +62,6 @@ q_add(std::vector<qc::qbit> const& a,
 }
 
 /**
- * 与えられた量子変数すべてにアダマールゲートを適用する。
- */
-void
-hadamard(std::vector<qc::qbit> const& qs) {
-  BOOST_FOREACH(qc::qbit const& q, qs) {
-    qc::hadamard(q);
-  }
-}
-
-/**
  * 与えられた量子変数全てについて測定を行い、数値として返す。
  */
 int

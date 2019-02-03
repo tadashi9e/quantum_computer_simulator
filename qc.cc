@@ -111,16 +111,16 @@ static basis_t set_0(basis_t n, qbit_id_t i) {
 
 static int count_1_bits(basis_t n) {
   // Humming weight
-  const uint64_t m1  = 0x5555555555555555; //binary: 0101...
-  const uint64_t m2  = 0x3333333333333333; //binary: 00110011..
-  const uint64_t m4  = 0x0f0f0f0f0f0f0f0f; //binary:  4 zeros,  4 ones ...
-  const uint64_t m8  = 0x00ff00ff00ff00ff; //binary:  8 zeros,  8 ones ...
-  const uint64_t m16 = 0x0000ffff0000ffff; //binary: 16 zeros, 16 ones ...
-  const uint64_t m32 = 0x00000000ffffffff; //binary: 32 zeros, 32 ones
-  n = (n & m1 ) + ((n >>  1) & m1 );
-  n = (n & m2 ) + ((n >>  2) & m2 );
-  n = (n & m4 ) + ((n >>  4) & m4 );
-  n = (n & m8 ) + ((n >>  8) & m8 );
+  const uint64_t m1  = 0x5555555555555555;  // binary: 0101...
+  const uint64_t m2  = 0x3333333333333333;  // binary: 00110011..
+  const uint64_t m4  = 0x0f0f0f0f0f0f0f0f;  // binary:  4 zeros,  4 ones ...
+  const uint64_t m8  = 0x00ff00ff00ff00ff;  // binary:  8 zeros,  8 ones ...
+  const uint64_t m16 = 0x0000ffff0000ffff;  // binary: 16 zeros, 16 ones ...
+  const uint64_t m32 = 0x00000000ffffffff;  // binary: 32 zeros, 32 ones
+  n = (n & m1) + ((n >>  1) & m1);
+  n = (n & m2) + ((n >>  2) & m2);
+  n = (n & m4) + ((n >>  4) & m4);
+  n = (n & m8) + ((n >>  8) & m8);
   n = (n & m16) + ((n >> 16) & m16);
   n = (n & m32) + ((n >> 32) & m32);
   return n;
@@ -158,13 +158,7 @@ static double amplitude(amplitude_t const& q_amp) {
 /**
  * 量子変数の状態を表示する。
  */
-  void dump(std::string const& title) {
-  std::cout << "===== " << title << " =====" << std::endl;
-  std::cout << "-- qbits --" << std::endl;
-  for (qbit& qbit : qbits) {
-    std::cout << qbit.str() << std::endl;
-  }
-  std::cout << "-- states --" << std::endl;
+void dump(qbit_id_t n_bits) {
   std::vector<basis_t> bases;
   bases.reserve(q_amplitudes.size());
   for (amplitude_map_t::value_type const& v : q_amplitudes) {
@@ -173,12 +167,20 @@ static double amplitude(amplitude_t const& q_amp) {
   std::sort(bases.begin(), bases.end());
   for (basis_t basis : bases) {
     amplitude_t const& q_amp(q_amplitudes[basis]);
-    std::cout << bitset_of(basis, static_cast<basis_t>(1) << qbits.size())
+    std::cout << bitset_of(basis, static_cast<basis_t>(1) << n_bits)
               << ": |"
               << q_amp
               << "| = " << amplitude(q_amp)
               << std::endl;
   }
+}
+void dump(std::string const& title) {
+  std::cout << "===== " << title << " =====" << std::endl;
+  std::cout << "-- qbits --" << std::endl;
+  for (qbit& qbit : qbits) {
+    std::cout << qbit.str() << std::endl;
+  }
+  dump(qbits.size());
 }
 
 /**
@@ -212,25 +214,24 @@ void restore(frozen_ptr const& frozenptr) {
 // ----------------------------------------------------------------------
 
 double
-measure(qbit const& q, bool is_up) {
-  qbit_id_t const id(q.get_id());
+measure(qbit_id_t id, bool is_up) {
   double p = 0;
   basis_t mask = static_cast<basis_t>(0x01) << id;
-  for(amplitude_map_t::value_type const& v : q_amplitudes) {
+  for (amplitude_map_t::value_type const& v : q_amplitudes) {
     basis_t const basis(v.first);
     amplitude_t const& q_amp(v.second);
-    bool b = ((basis & mask) == 0) ? false : true;
+    bool const b(((basis & mask) == 0) ? false : true);
     if (b == is_up) {
       p += amplitude(q_amp);
     }
   }
   if (p != 0) {
-    double w = 1.0 / sqrt(p);
+    double const w(1.0 / sqrt(p));
     for (amplitude_map_t::iterator iter = q_amplitudes.begin();
         iter != q_amplitudes.end();) {
       basis_t const basis(iter->first);
       amplitude_t& q_amp(iter->second);
-      bool b = ((basis & mask) == 0) ? false : true;
+      bool const b(((basis & mask) == 0) ? false : true);
       if (b != is_up) {
         iter = q_amplitudes.erase(iter);
       } else {
@@ -243,29 +244,28 @@ measure(qbit const& q, bool is_up) {
 }
 
 bool
-measure(qbit const& q) {
-  qbit_id_t const id(q.get_id());
+measure(qbit_id_t id) {
   double p0 = 0;
   double p1 = 0;
   basis_t mask = static_cast<basis_t>(0x01) << id;
-  for(amplitude_map_t::value_type const& v : q_amplitudes) {
+  for (amplitude_map_t::value_type const& v : q_amplitudes) {
     basis_t const basis(v.first);
     amplitude_t const& q_amp(v.second);
-    bool b = ((basis & mask) == 0) ? false : true;
+    bool const b(((basis & mask) == 0) ? false : true);
     if (b) {
       p1 += amplitude(q_amp);
     } else {
       p0 += amplitude(q_amp);
     }
   }
-  bool is_up = (p1 > random01.get_random()) ? true : false;
-  double p = is_up ? p1 : p0;
-  double w = 1.0 / sqrt(p);
+  bool is_up((p1 > random01.get_random()) ? true : false);
+  double const p(is_up ? p1 : p0);
+  double const w(1.0 / sqrt(p));
   for (amplitude_map_t::iterator iter = q_amplitudes.begin();
        iter != q_amplitudes.end();) {
     basis_t const basis(iter->first);
     amplitude_t& q_amp(iter->second);
-    bool b = ((basis & mask) == 0) ? false : true;
+    bool const b(((basis & mask) == 0) ? false : true);
     if (b != is_up) {
       iter = q_amplitudes.erase(iter);
     } else {
@@ -283,8 +283,7 @@ measure(qbit const& q) {
  * \     /
  */
 void
-hadamard(qbit const& q) {
-  qbit_id_t const target_id(q.get_id());
+hadamard(qbit_id_t target_id) {
   amplitude_map_t q_amplitudes2;
   double const p(sqrt(2.0));
   for (amplitude_map_t::value_type const& v : q_amplitudes) {
@@ -302,10 +301,10 @@ hadamard(qbit const& q) {
   q_amplitudes = std::move(q_amplitudes2);
 }
 void
-hadamard_for_all() {
-  basis_t const total_basis(static_cast<basis_t>(0x01) << qbits.size());
+hadamard_up_to(qbit_id_t n_qbits) {
+  basis_t const total_basis(static_cast<basis_t>(0x01) << n_qbits);
   amplitude_map_t q_amplitudes2;
-  double const p(pow(sqrt(2.0), qbits.size()));
+  double const p(pow(sqrt(2.0), n_qbits));
   for (amplitude_map_t::value_type const& v : q_amplitudes) {
     basis_t const basis(v.first);
     amplitude_t const& q_amp(v.second);
@@ -329,8 +328,7 @@ hadamard_for_all() {
  * \             /
  */
 void
-cphase(qbit const& q, amplitude_t const& phase) {
-  qbit_id_t const target_id(q.get_id());
+cphase(qbit_id_t target_id, std::complex<double> const& phase) {
   amplitude_map_t q_amplitudes2;
   for (amplitude_map_t::value_type const& v : q_amplitudes) {
     basis_t const basis(v.first);
@@ -347,8 +345,7 @@ cphase(qbit const& q, amplitude_t const& phase) {
  * | 1 0|
  * \    /
  */
-void pauli_x(qbit const& q) {
-  qbit_id_t const target_id(q.get_id());
+void pauli_x(qbit_id_t target_id) {
   amplitude_map_t q_amplitudes2;
   for (amplitude_map_t::value_type const& v : q_amplitudes) {
     basis_t const basis(v.first);
@@ -359,9 +356,7 @@ void pauli_x(qbit const& q) {
   }
   q_amplitudes = std::move(q_amplitudes2);
 }
-void cx(qbit const& control_q, qbit const& target_q) {
-  qbit_id_t const control_id(control_q.get_id());
-  qbit_id_t const target_id(target_q.get_id());
+void cx(qbit_id_t control_id, qbit_id_t target_id) {
   amplitude_map_t q_amplitudes2;
   for (amplitude_map_t::value_type const& v : q_amplitudes) {
     basis_t const basis(v.first);
@@ -376,12 +371,8 @@ void cx(qbit const& control_q, qbit const& target_q) {
   }
   q_amplitudes = std::move(q_amplitudes2);
 }
-void ccx(qbit const& control1_q,
-         qbit const& control2_q,
-         qbit const& target_q) {
-  qbit_id_t const control1_id(control1_q.get_id());
-  qbit_id_t const control2_id(control2_q.get_id());
-  qbit_id_t const target_id(target_q.get_id());
+void ccx(qbit_id_t control1_id, qbit_id_t control2_id,
+         qbit_id_t target_id) {
   amplitude_map_t q_amplitudes2;
   for (amplitude_map_t::value_type const& v : q_amplitudes) {
     basis_t const basis(v.first);
@@ -406,17 +397,58 @@ void ccx(qbit const& control1_q,
  * | i  0|
  * \     /
  */
-void pauli_y(qbit const& q) {
-  qbit_id_t const target_id(q.get_id());
+void pauli_y(qbit_id_t target_id) {
   amplitude_map_t q_amplitudes2;
   for (amplitude_map_t::value_type const& v : q_amplitudes) {
     basis_t const basis(v.first);
     amplitude_t const& q_amp(v.second);
-    basis_t const basis2 = is_1(basis, target_id) ?
-      set_0(basis, target_id) : set_1(basis, target_id);
+    basis_t const basis2(is_1(basis, target_id) ?
+                         set_0(basis, target_id) : set_1(basis, target_id));
     amplitude_t const q_amp2(q_amp *
                              (is_1(basis, target_id) ?
-                              amplitude_t(0.0, 1.0) : amplitude_t(0.0, -1.0)));
+                              amplitude_t(0.0, -1.0) : amplitude_t(0.0, 1.0)));
+    add_amplitude(q_amplitudes2, basis2, q_amp2);
+  }
+  q_amplitudes = std::move(q_amplitudes2);
+}
+void cy(qbit_id_t control_id,
+        qbit_id_t target_id) {
+  amplitude_map_t q_amplitudes2;
+  for (amplitude_map_t::value_type const& v : q_amplitudes) {
+    basis_t const basis(v.first);
+    amplitude_t const& q_amp(v.second);
+    if (!is_1(basis, control_id)) {
+      add_amplitude(q_amplitudes2, basis, q_amp);
+      continue;
+    }
+    basis_t const basis2(is_1(basis, target_id) ?
+                         set_0(basis, target_id) : set_1(basis, target_id));
+    amplitude_t const q_amp2(q_amp *
+                             (is_1(basis, target_id) ?
+                              amplitude_t(0.0, -1.0) : amplitude_t(0.0, 1.0)));
+    add_amplitude(q_amplitudes2, basis2, q_amp2);
+  }
+  q_amplitudes = std::move(q_amplitudes2);
+}
+void ccy(qbit_id_t control_id1, qbit_id_t control_id2,
+         qbit_id_t target_id) {
+  amplitude_map_t q_amplitudes2;
+  for (amplitude_map_t::value_type const& v : q_amplitudes) {
+    basis_t const basis(v.first);
+    amplitude_t const& q_amp(v.second);
+    if (!is_1(basis, control_id1)) {
+      add_amplitude(q_amplitudes2, basis, q_amp);
+      continue;
+    }
+    if (!is_1(basis, control_id2)) {
+      add_amplitude(q_amplitudes2, basis, q_amp);
+      continue;
+    }
+    basis_t const basis2(is_1(basis, target_id) ?
+                         set_0(basis, target_id) : set_1(basis, target_id));
+    amplitude_t const q_amp2(q_amp *
+                             (is_1(basis, target_id) ?
+                              amplitude_t(0.0, -1.0) : amplitude_t(0.0, 1.0)));
     add_amplitude(q_amplitudes2, basis2, q_amp2);
   }
   q_amplitudes = std::move(q_amplitudes2);
@@ -427,8 +459,7 @@ void pauli_y(qbit const& q) {
  * | 0 -1|
  * \     /
  */
-void pauli_z(qbit const& q) {
-  qbit_id_t const target_id(q.get_id());
+void pauli_z(qbit_id_t target_id) {
   amplitude_map_t q_amplitudes2;
   for (amplitude_map_t::value_type const& v : q_amplitudes) {
     basis_t const basis(v.first);
@@ -438,9 +469,8 @@ void pauli_z(qbit const& q) {
   }
   q_amplitudes = std::move(q_amplitudes2);
 }
-void cz(qbit const& control_q, qbit const& target_q) {
-  qbit_id_t const control_id(control_q.get_id());
-  qbit_id_t const target_id(target_q.get_id());
+void cz(qbit_id_t control_id,
+        qbit_id_t target_id) {
   amplitude_map_t q_amplitudes2;
   for (amplitude_map_t::value_type const& v : q_amplitudes) {
     basis_t const basis(v.first);
@@ -454,12 +484,8 @@ void cz(qbit const& control_q, qbit const& target_q) {
   }
   q_amplitudes = std::move(q_amplitudes2);
 }
-void ccz(qbit const& control1_q,
-         qbit const& control2_q,
-         qbit const& target_q) {
-  qbit_id_t const control1_id(control1_q.get_id());
-  qbit_id_t const control2_id(control2_q.get_id());
-  qbit_id_t const target_id(target_q.get_id());
+void ccz(qbit_id_t control1_id, qbit_id_t control2_id,
+         qbit_id_t target_id) {
   amplitude_map_t q_amplitudes2;
   for (amplitude_map_t::value_type const& v : q_amplitudes) {
     basis_t const basis(v.first);
@@ -476,6 +502,86 @@ void ccz(qbit const& control1_q,
     add_amplitude(q_amplitudes2, basis, q_amp2);
   }
   q_amplitudes = std::move(q_amplitudes2);
+}
+// ----------------------------------------------------------------------
+double
+measure(qbit const& q, bool is_up) {
+  qbit_id_t const id(q.get_id());
+  return measure(id, is_up);
+}
+bool
+measure(qbit const& q) {
+  qbit_id_t const id(q.get_id());
+  return measure(id);
+}
+void
+hadamard(qbit const& q) {
+  qbit_id_t const target_id(q.get_id());
+  hadamard(target_id);
+}
+void
+hadamard_for_all() {
+  hadamard_up_to(static_cast<qbit_id_t>(qbits.size()));
+}
+
+void
+cphase(qbit const& q, std::complex<double> const& phase) {
+  qbit_id_t const target_id(q.get_id());
+  cphase(target_id, phase);
+}
+void pauli_x(qbit const& q) {
+  qbit_id_t const target_id(q.get_id());
+  pauli_x(target_id);
+}
+void cx(qbit const& control_q,
+         qbit const& target_q) {
+  qbit_id_t const control1_id(control_q.get_id());
+  qbit_id_t const target_id(target_q.get_id());
+  cx(control1_id, target_id);
+}
+void ccx(qbit const& control1_q,
+         qbit const& control2_q,
+         qbit const& target_q) {
+  qbit_id_t const control1_id(control1_q.get_id());
+  qbit_id_t const control2_id(control2_q.get_id());
+  qbit_id_t const target_id(target_q.get_id());
+  ccx(control1_id, control2_id, target_id);
+}
+void pauli_y(qbit const& q) {
+  qbit_id_t const target_id(q.get_id());
+  pauli_y(target_id);
+}
+void cy(qbit const& control_q,
+         qbit const& target_q) {
+  qbit_id_t const control1_id(control_q.get_id());
+  qbit_id_t const target_id(target_q.get_id());
+  cy(control1_id, target_id);
+}
+void ccy(qbit const& control1_q,
+         qbit const& control2_q,
+         qbit const& target_q) {
+  qbit_id_t const control1_id(control1_q.get_id());
+  qbit_id_t const control2_id(control2_q.get_id());
+  qbit_id_t const target_id(target_q.get_id());
+  ccy(control1_id, control2_id, target_id);
+}
+void pauli_z(qbit const& q) {
+  qbit_id_t const target_id(q.get_id());
+  pauli_z(target_id);
+}
+void cz(qbit const& control_q,
+         qbit const& target_q) {
+  qbit_id_t const control1_id(control_q.get_id());
+  qbit_id_t const target_id(target_q.get_id());
+  cz(control1_id, target_id);
+}
+void ccz(qbit const& control1_q,
+         qbit const& control2_q,
+         qbit const& target_q) {
+  qbit_id_t const control1_id(control1_q.get_id());
+  qbit_id_t const control2_id(control2_q.get_id());
+  qbit_id_t const target_id(target_q.get_id());
+  ccz(control1_id, control2_id, target_id);
 }
 
 }  // namespace qc

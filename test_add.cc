@@ -2,7 +2,6 @@
 // Copyright [2019] tadashi9e
 #include <iostream>
 #include <vector>
-#include <boost/foreach.hpp>
 #include "qc.h"
 
 /**

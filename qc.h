@@ -37,8 +37,10 @@ class qbit {
   std::shared_ptr<q_impl> impl;
 };
 
-extern void dump(std::string const& title);
-extern void dump(qbit_id_t n_bits);
+double const DEFAULT_DUMP_LIMIT(0.0000000000001);
+
+extern void dump(std::string const& title, double limit=DEFAULT_DUMP_LIMIT);
+extern void dump(qbit_id_t n_bits, double limit=DEFAULT_DUMP_LIMIT);
 extern void reset();
 
 class frozen;
